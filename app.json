@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "20 Minute Truce",
+    "slug": "20-minute-truce",
+    "version": "1.0.0",
+    "scheme": "20minutetruce",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow 20 Minute Truce to access your microphone for voice-to-text translation and mediation."
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.drtdshelton.twentyminutetruce",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow 20 Minute Truce to access your microphone for voice-to-text translation and mediation.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.drtdshelton.twentyminutetruce",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      }
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a5188b84-10c0-460e-a4de-18bc05ea69b8"
+      }
+    }
+  }
+}
