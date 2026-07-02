@@ -81,15 +81,21 @@ Provide 4 distinct tactical tools to break this exact cycle. You MUST format eac
 
 2. **The Vulnerability Drop**: 
 - **Step-by-Step Instructions**: [Provide a numbered, 3-step technical guide on exactly what physical or structural actions to take to bypass the defensive anger and speak directly from the exposed "Core Wound" identified above. Be specific and actionable. Do NOT use dialogue here].
-- **Tactical Scripts**: "[Verbatim 1-sentence scripts owning the primary emotion]"
+- **Tactical Script**: 
+${userName} say this to ${partnerName}: [Verbatim 1-2 sentences script owning the primary emotion]
+
+${partnerName} say this to ${userName}: [Verbatim 1-2 sentences script owning the primary emotion]
 
 3. **The Us-vs-The-Problem Pivot**: 
 - - **Step-by-Step Instructions**: [Provide a numbered, 3-step technical guide on exactly what physical or structural actions to take to bring them back together as a team. Be specific and actionable. Do NOT use dialogue here].
 - **Tactical Script**: "[Verbatim script to realign as a team]"
 
-4. **[Generate a Unique, Creative Tactical Tool Name]**: 
+4. **[Generate a Different, Unique, Creative Tactical Tool Name]**: 
 - **Step-by-Step Instructions**: [Provide a numbered, 3-step technical guide on exactly what physical or structural actions to take. Be specific and actionable. Do NOT use dialogue here].
-- **Tactical Script**: "[Verbatim dialogue for the user to say to their partner to execute the tool]"
+- **Tactical Script**: 
+${userName} say this to ${partnerName}: [Verbatim 1-2 sentences script owning the primary emotion]
+
+${partnerName} say this to ${userName}: [Verbatim 1-2 sentences script owning the primary emotion]
 
 Return your analysis with these exact headers:
 [The Cycle]

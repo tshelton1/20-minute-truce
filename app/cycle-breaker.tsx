@@ -111,7 +111,6 @@ export default function CycleBreakerScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      // 🛡️ CRITICAL FIX: Ensure user_name is pulled from the database for the Edge Function
       const { data: logs, count } = await supabase
         .from('mediator_logs')
         .select('user_name, user_perspective, partner_perspective, created_at, partner_name', { count: 'exact' })
@@ -195,7 +194,6 @@ export default function CycleBreakerScreen() {
   const renderContent = () => {
     if (!insight) return null;
     
-    // 🛡️ THE FIX: Universal catch-all so the screen never goes blank
     if (!insight.includes("[The Cycle]")) {
         return (
             <View style={[styles.card, { borderLeftColor: '#fbbf24' }]}>
@@ -210,7 +208,6 @@ export default function CycleBreakerScreen() {
         );
     }
 
-    // 🛡️ Added the [The Infinity Loop] section
     const sections = [
       { key: '[The Cycle]', label: 'THE CYCLE', icon: 'sync-alert', color: '#f43f5e' },
       { key: '[The Infinity Loop]', label: 'THE INFINITY LOOP', icon: 'infinity', color: '#a855f7' },
@@ -244,7 +241,7 @@ export default function CycleBreakerScreen() {
           </View>
           <View>
             {toolBlocks.map((block, blockIdx) => {
-              const scriptHeaderMatch = block.match(/(?:Tactical Script|Script):?/i);
+              const scriptHeaderMatch = block.match(/\*?\*?(?:Tactical Scripts?|Scripts?)\*?\*?:?/i);
               let instructions = block;
               let script = "";
               if (scriptHeaderMatch) {
@@ -285,42 +282,52 @@ export default function CycleBreakerScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <MediatorPaywall isVisible={showPaywall} onClose={() => { setShowPaywall(false); checkSubscriptionAndUsage(); }} />
-      <View style={styles.header}>
+      
+      {/* 📱 iPad Fix: Wrapped Header in a Max Width container */}
+      <View style={[styles.header, { maxWidth: 650, width: '100%', alignSelf: 'center' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="chevron-left" size={28} color="#D4AF37" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { letterSpacing: 2 }]}>THE CYCLE BREAKER</Text>
         <View style={{ width: 40 }} />
       </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroSection}>
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="sync-off" size={40} color="#D4AF37" />
+        
+        {/* 📱 iPad Fix: Wrapped all main content in a Max Width container */}
+        <View style={{ maxWidth: 650, width: '100%', alignSelf: 'center' }}>
+          <View style={styles.heroSection}>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons name="sync-off" size={40} color="#D4AF37" />
+            </View>
+            <Text style={[styles.heroText, { letterSpacing: UNIFORM_SPACING }]}>
+              Identify the triggers. Expose the mechanics. {"\n"}Break the pattern.
+            </Text>
+            {!insight && !loading && (
+              <TouchableOpacity style={styles.mainCta} onPress={runAnalysis}>
+                <Text style={[styles.ctaText, { letterSpacing: 1.5 }]}>START ANALYSIS</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={[styles.heroText, { letterSpacing: UNIFORM_SPACING }]}>
-            Identify the triggers. Expose the mechanics. {"\n"}Break the pattern.
-          </Text>
-          {!insight && !loading && (
-            <TouchableOpacity style={styles.mainCta} onPress={runAnalysis}>
-              <Text style={[styles.ctaText, { letterSpacing: 1.5 }]}>START ANALYSIS</Text>
-            </TouchableOpacity>
+          
+          {loading && (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color="#D4AF37" />
+              <Text style={[styles.loaderText, { letterSpacing: UNIFORM_SPACING }]}>Analyzing patterns...</Text>
+            </View>
+          )}
+          
+          {insight && !loading && (
+            <Animated.View style={{ opacity: fadeAnim }}>
+              {renderContent()}
+              <TouchableOpacity style={styles.refreshButton} onPress={runAnalysis}>
+                <MaterialCommunityIcons name="cached" size={16} color="#64748b" />
+                <Text style={[styles.refreshText, { letterSpacing: UNIFORM_SPACING }]}>RE-SCAN PATTERNS</Text>
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </View>
-        {loading && (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#D4AF37" />
-            <Text style={[styles.loaderText, { letterSpacing: UNIFORM_SPACING }]}>Analyzing patterns...</Text>
-          </View>
-        )}
-        {insight && !loading && (
-          <Animated.View style={{ opacity: fadeAnim }}>
-            {renderContent()}
-            <TouchableOpacity style={styles.refreshButton} onPress={runAnalysis}>
-              <MaterialCommunityIcons name="cached" size={16} color="#64748b" />
-              <Text style={[styles.refreshText, { letterSpacing: UNIFORM_SPACING }]}>RE-SCAN PATTERNS</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
+
       </ScrollView>
     </SafeAreaView>
   );

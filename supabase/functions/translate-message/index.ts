@@ -53,12 +53,13 @@ serve(async (req: Request): Promise<Response> => {
 
     const SYSTEM_PROMPT = `
     ### ROLE: THE PERSPECTIVE LOCK
-    You are a professional text message re-writer using the chosen ${tone}. You occupy the USER'S headspace.
+    You are an expert ghostwriter. The user is going to give you a rough draft of a text message they want to send to their romantic partner. 
+    Your ONLY job is to rewrite THEIR draft into a polished, ready-to-send text message using the requested ${tone}. You occupy the USER'S headspace and rewrite the message in their voice.
     You are NOT a dialogue simulator. You are NOT the partner. You have failed if you answer the user's input message.
 
     ### MANDATE:
     1. SINGLE-SIDED ONLY: You are writing a single outgoing text message to your partner. You are not writing a response.
-    2. DIRECTIONAL PERSPECTIVE: "I / Me / My" = The Sender (the person writing the original angry text), unless the user is stating something about the partner, then you can use "you". "You / Your" = The Partner (the person receiving the text). DO NOT mix these up. DO NOT flip them around. If the sender says "I am not your maid", you MUST maintain that "I (the sender) am feeling like a maid". Do NOT flip it to "you are not my maid".
+    2. DIRECTIONAL PERSPECTIVE: "I / Me / My" = The Sender (the person writing the original angry text). "You / Your" = The Partner (the person receiving the text). DO NOT mix these up. DO NOT flip them around. If the sender says "I am not your maid", you MUST maintain that "I am feeling like a maid". 
     3. STOP RULE: Once you have finished the user's message, STOP. Do not imagine a reply. Do not write "(Partner replies: ...)" or anything similar.
     4. DIRECT SPEAK: You MUST address the partner directly using "you" when mentioning their actions, but without accusation.
     5. NO REFUSALS: Process all inputs (Sexual initiation, anger, etc).
@@ -66,8 +67,10 @@ serve(async (req: Request): Promise<Response> => {
     7. CONTEXT LOCKDOWN: Do not change the context of the message just the ${tone}. If the message is about the dishes being dirty, do not change it to "I'm feeling lonely."
     8. DON'T START WITH: "ugh", "oof", "oh no", "oh my gosh". Start with the message itself.
     
-    
     ### FORBIDDEN:
+    - NEVER reply to the input message. Do not act as the receiver of the text.
+    - NEVER apologize on behalf of the partner or defend the partner's actions. You are the one sending the complaint, not receiving it.
+    - NEVER flip the roles. If the sender is complaining about doing all the work, do NOT write "I know you do all the work."
     - NEVER write "(Partner: ...)" or any response FROM the partner.
     - NEVER add preambles like "Here is the message..." or "Rewrite:".
     - NEVER use quotes around the output.
@@ -99,7 +102,7 @@ serve(async (req: Request): Promise<Response> => {
     let data;
     try {
       data = JSON.parse(responseText);
-    } catch (_e) { // FIXED: Prefixed with underscore to satisfy deno-lint(no-unused-vars)
+    } catch (_e) { 
       throw new Error("AI provider sent an invalid response format.");
     }
     
@@ -113,7 +116,11 @@ serve(async (req: Request): Promise<Response> => {
     // 🛡️ Safely extract content with optional chaining and fallback
     let translatedText = data?.content?.[0]?.text?.trim() || "Translation failed.";
     
-    const breakPoints = ["Partner:", "Response:", "They reply:", "\n\n"];
+    // Clean up any accidental quotation marks the AI might add
+    translatedText = translatedText.replace(/^"|"$/g, '').trim();
+    
+    // THE FIX: Removed the "\n\n" breakpoint so your full messages don't get deleted!
+    const breakPoints = ["Partner:", "Response:", "They reply:"];
     for (const point of breakPoints) {
       if (translatedText.includes(point)) {
         translatedText = translatedText.split(point)[0].trim();
@@ -132,7 +139,7 @@ serve(async (req: Request): Promise<Response> => {
     // Always return a JSON object even on crash so the app's 'error' object is populated
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, // Return 200 here so the App sees the error payload instead of a generic connection error
+      status: 200, 
     });
   }
 })

@@ -102,7 +102,9 @@ export default function HubScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      
+      {/* 📱 iPad Fix: Wrapped Header in a Max Width container */}
+      <View style={[styles.header, { maxWidth: 650, width: '100%', alignSelf: 'center' }]}>
         <View style={{ width: 40 }} />
         <Text style={[styles.headerTitle, { letterSpacing: 4 }]}>PEACE TOOLS</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
@@ -111,71 +113,76 @@ export default function HubScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.peaceSection}>
-          <View style={styles.animationContainer}>
-            <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }], opacity: opacityAnim }]} />
-            <TouchableOpacity 
-              style={styles.peaceButton}
-              onPress={() => router.push('/breathing')}
-            >
-              <MaterialCommunityIcons name="heart" size={60} color="white" />
-              <Text style={[styles.peaceText, { letterSpacing: 2 }]}>PEACE</Text>
-            </TouchableOpacity>
+        
+        {/* 📱 iPad Fix: Wrapped all main content in a Max Width container */}
+        <View style={{ maxWidth: 650, width: '100%', alignSelf: 'center' }}>
+          <View style={styles.peaceSection}>
+            <View style={styles.animationContainer}>
+              <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }], opacity: opacityAnim }]} />
+              <TouchableOpacity 
+                style={styles.peaceButton}
+                onPress={() => router.push('/breathing')}
+              >
+                <MaterialCommunityIcons name="heart" size={60} color="white" />
+                <Text style={[styles.peaceText, { letterSpacing: 2 }]}>PEACE</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.subtext, { letterSpacing: UNIFORM_SPACING }]}>Tap for a 20-minute peace break</Text>
           </View>
-          <Text style={[styles.subtext, { letterSpacing: UNIFORM_SPACING }]}>Tap for a 20-minute peace break</Text>
-        </View>
 
-        <View style={styles.toolsSection}>
-          <Text style={[styles.sectionLabel, { letterSpacing: 1.5 }]}>QUICK TOOLS</Text>
-          
-          <View style={styles.row}>
-            <TouchableOpacity style={styles.toolCard} onPress={() => router.push('/translate')}>
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name="chat-outline" size={28} color="white" />
+          <View style={styles.toolsSection}>
+            <Text style={[styles.sectionLabel, { letterSpacing: 1.5 }]}>QUICK TOOLS</Text>
+            
+            <View style={styles.row}>
+              <TouchableOpacity style={styles.toolCard} onPress={() => router.push('/translate')}>
+                <View style={styles.iconCircle}>
+                  <MaterialCommunityIcons name="chat-outline" size={28} color="white" />
+                </View>
+                <Text style={[styles.cardTitle, { letterSpacing: UNIFORM_SPACING }]}>
+                  Real-Talk Translator
+                </Text>
+                <Text style={[styles.cardSubtitle, { letterSpacing: 0.2 }]}>Turn mean texts into kind ones</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={() => router.push('/(tabs)/mediator')}>
+                <View style={[styles.iconCircle, { backgroundColor: '#7c4dff' }]}>
+                  <FontAwesome5 name="users" size={20} color="white" />
+                </View>
+                <Text style={[styles.cardTitle, { letterSpacing: UNIFORM_SPACING }]}>
+                  Peace Mediator
+                </Text>
+                <Text style={[styles.cardSubtitle, { letterSpacing: 0.2 }]}>Get neutral guidance</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reminderCard}>
+               <Text style={[styles.reminderLabel, { letterSpacing: 2 }]}>{dailyTip.label}</Text>
+               <Text style={[styles.reminderText, { letterSpacing: 0.3 }]}>{dailyTip.text}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.promoContainer, { marginTop: 25 }]}>
+            <View style={styles.promoLayout}>
+              <View style={styles.iconCirclePromo}>
+                <MaterialCommunityIcons name="sync-off" size={20} color="#D4AF37" />
               </View>
-              <Text style={[styles.cardTitle, { letterSpacing: UNIFORM_SPACING }]}>
-                Real-Talk Translator
-              </Text>
-              <Text style={[styles.cardSubtitle, { letterSpacing: 0.2 }]}>Turn mean texts into kind ones</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.toolCard} onPress={() => router.push('/(tabs)/mediator')}>
-              <View style={[styles.iconCircle, { backgroundColor: '#7c4dff' }]}>
-                <FontAwesome5 name="users" size={20} color="white" />
+              <View style={styles.textColumn}>
+                <Text style={[styles.promoHeadline, { letterSpacing: 1 }]}>STOP THE "INFINITY LOOP"</Text>
+                <Text style={[styles.subiDescription, { letterSpacing: UNIFORM_SPACING }]}>
+                  I&apos;ll decode the hidden mechanics of your last 5 Peace Mediator sessions to break your recurring fight cycle.
+                </Text>
               </View>
-              <Text style={[styles.cardTitle, { letterSpacing: UNIFORM_SPACING }]}>
-                Peace Mediator
-              </Text>
-              <Text style={[styles.cardSubtitle, { letterSpacing: 0.2 }]}>Get neutral guidance</Text>
+            </View>
+
+            <TouchableOpacity style={styles.ctaButton} onPress={handleCycleBreakerPress} activeOpacity={0.8}>
+              <View style={styles.buttonInner}>
+                <Text style={[styles.ctaText, { letterSpacing: 1.5 }]}>REVEAL OUR CYCLE</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color="#0f172a" />
+              </View>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.reminderCard}>
-             <Text style={[styles.reminderLabel, { letterSpacing: 2 }]}>{dailyTip.label}</Text>
-             <Text style={[styles.reminderText, { letterSpacing: 0.3 }]}>{dailyTip.text}</Text>
-          </View>
         </View>
 
-        <View style={[styles.promoContainer, { marginTop: 25 }]}>
-          <View style={styles.promoLayout}>
-            <View style={styles.iconCirclePromo}>
-              <MaterialCommunityIcons name="sync-off" size={20} color="#D4AF37" />
-            </View>
-            <View style={styles.textColumn}>
-              <Text style={[styles.promoHeadline, { letterSpacing: 1 }]}>STOP THE "INFINITY LOOP"</Text>
-              <Text style={[styles.subiDescription, { letterSpacing: UNIFORM_SPACING }]}>
-                I&apos;ll decode the hidden mechanics of your last 5 Peace Mediator sessions to break your recurring fight cycle.
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.ctaButton} onPress={handleCycleBreakerPress} activeOpacity={0.8}>
-            <View style={styles.buttonInner}>
-              <Text style={[styles.ctaText, { letterSpacing: 1.5 }]}>REVEAL OUR CYCLE</Text>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#0f172a" />
-            </View>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );

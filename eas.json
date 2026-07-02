@@ -1,0 +1,27 @@
+{
+  "cli": {
+    "version": ">= 18.0.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xvdsfpewqkitdjgnkrsf.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2ZHNmcGV3cWtpdGRqZ25rcnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NjA5NDYsImV4cCI6MjA4NDUzNjk0Nn0.yrFW-Qb7NEpKvLNcnSFMi9wnfkFXQFvte3BwqTAFF8c",
+        "EXPO_PUBLIC_RC_IOS_KEY": "appl_wMRfnDvUFfScsGXYQGWWFzqXQYn",
+        "EXPO_PUBLIC_RC_GOOGLE_KEY": "your_google_key_here"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

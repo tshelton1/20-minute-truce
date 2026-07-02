@@ -86,7 +86,8 @@ export default function AuthScreen() {
         }
       }
     } catch (_error: any) { 
-      console.error("Auth Error:", _error.message);
+      // Changed from console.error to console.log so Expo stops throwing red screens!
+      console.log("Auth Error:", _error.message); 
       let friendlyMessage = _error.message;
       
       if (_error.message.includes("Invalid login credentials")) {
@@ -95,8 +96,39 @@ export default function AuthScreen() {
         friendlyMessage = "Connection error. Please check your internet.";
       }
 
-      Alert.alert("Authentication Failed", friendlyMessage);
+      // DO NOT show an alert if it was a background auto-login failure 
+      // after a password reset, just kill the spinner silently.
+      if (!friendlyMessage.includes("Invalid login credentials") || email !== '') {
+        Alert.alert("Authentication Failed", friendlyMessage);
+      }
+    } finally {
       setLoading(false); 
+    }
+  }
+
+
+  // NEW: Password Reset Function
+  async function handlePasswordReset() {
+    const cleanEmail = email.trim().toLowerCase(); 
+    
+    if (!cleanEmail) {
+      Alert.alert("Required", "Please enter your email address above so we know where to send the code.");
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      if (error) throw error;
+
+      Alert.alert("Check your inbox", "We just sent you a 8-digit reset code!");
+      router.push(`/reset-password?email=${encodeURIComponent(cleanEmail)}`);
+      
+    } catch (_error: any) {
+      Alert.alert("Error", _error.message);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -123,8 +155,9 @@ export default function AuthScreen() {
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
-              autoComplete="email"
+              textContentType="emailAddress"
             />
           </View>
 
@@ -138,7 +171,9 @@ export default function AuthScreen() {
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
-                autoComplete="password"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="oneTimeCode" // Kills the yellow Apple AutoFill
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons 
@@ -160,6 +195,9 @@ export default function AuthScreen() {
                 secureTextEntry={!showPassword}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="oneTimeCode" // Kills the yellow Apple AutoFill
               />
             </View>
           )}
@@ -167,7 +205,8 @@ export default function AuthScreen() {
           {!isSignUp && (
             <TouchableOpacity 
               style={styles.forgotBtn}
-              onPress={() => Alert.alert("Reset Password", "Visit our website to reset your password.")}
+              onPress={handlePasswordReset}
+              disabled={loading}
             >
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>

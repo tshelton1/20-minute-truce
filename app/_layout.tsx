@@ -106,6 +106,7 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="reset-password" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="join" />
       <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />

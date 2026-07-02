@@ -162,7 +162,6 @@ export default function TranslatorScreen() {
       }
     } catch (_error: any) { 
       console.error("Translation Error:", _error);
-      // 🛡️ STOP HIDING THE ERROR: Show exactly what Claude returned
       Alert.alert("Diagnostics", `Claude says: ${_error.message || JSON.stringify(_error)}`);
     } finally { 
       setLoading(false); 
@@ -179,7 +178,9 @@ export default function TranslatorScreen() {
     <SafeAreaView style={styles.container}>
       <TranslatorPaywall isVisible={showPaywall} onClose={() => { setShowPaywall(false); checkStatus(); }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <View style={styles.header}>
+        
+        {/* 📱 iPad Fix: Wrapped Header in a Max Width container */}
+        <View style={[styles.header, { maxWidth: 650, width: '100%', alignSelf: 'center' }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
@@ -192,76 +193,81 @@ export default function TranslatorScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {!translatedText ? (
-            <View style={styles.card}>
-              <View style={styles.inputContainer}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.inputLabel, { color: '#C41E3A' }]}>
-                    {isRecording ? "LISTENING..." : "TRANSLATE RAW EMOTIONS HERE...."}
-                  </Text>
-                  <Animated.View style={{ transform: [{ scale: isRecording ? pulseAnim : 1 }] }}>
+          
+          {/* 📱 iPad Fix: Wrapped all main content in a Max Width container */}
+          <View style={{ maxWidth: 650, width: '100%', alignSelf: 'center' }}>
+            {!translatedText ? (
+              <View style={styles.card}>
+                <View style={styles.inputContainer}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.inputLabel, { color: '#C41E3A' }]}>
+                      {isRecording ? "LISTENING..." : "TRANSLATE RAW EMOTIONS HERE...."}
+                    </Text>
+                    <Animated.View style={{ transform: [{ scale: isRecording ? pulseAnim : 1 }] }}>
+                      <TouchableOpacity 
+                        onPress={handleVoiceToggle} 
+                        style={[styles.micBtn, isRecording && styles.micBtnActive]}
+                      >
+                        <MaterialCommunityIcons 
+                          name={isRecording ? "microphone" : "microphone-outline"} 
+                          size={20} 
+                          color={isRecording ? "white" : "#4ECDC4"} 
+                        />
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
+                  <TextInput
+                    style={[styles.input, isRecording && { color: '#f43f5e' }]}
+                    placeholder={isRecording ? "" : "Tap mic to speak or type here..."}
+                    placeholderTextColor="#475569"
+                    multiline value={text} onChangeText={setText} autoCorrect spellCheck autoCapitalize="sentences"
+                  />
+                </View>
+
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold', marginTop: 25, marginBottom: 15, textAlign: 'center' }}>PICK A VIBE</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+                  {tones.map((t) => (
                     <TouchableOpacity 
-                      onPress={handleVoiceToggle} 
-                      style={[styles.micBtn, isRecording && styles.micBtnActive]}
+                      key={t.id} 
+                      style={[{ width: '47%', marginHorizontal: '1.5%', backgroundColor: '#0f172a', borderRadius: 20, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', minHeight: 135 }, tone === t.id && { borderColor: t.color }]}
+                      onPress={() => setTone(t.id)}
                     >
-                      <MaterialCommunityIcons 
-                        name={isRecording ? "microphone" : "microphone-outline"} 
-                        size={20} 
-                        color={isRecording ? "white" : "#4ECDC4"} 
-                      />
+                      <MaterialCommunityIcons name={t.icon} size={24} color={tone === t.id ? t.color : '#475569'} />
+                      <Text style={[{ color: '#475569', fontWeight: 'bold', fontSize: 13, marginTop: 8 }, tone === t.id && { color: 'white' }]}>{t.label}</Text>
+                      <Text style={{ color: '#64748b', fontSize: 10, textAlign: 'center', marginTop: 6, lineHeight: 14 }}>{t.desc}</Text>
                     </TouchableOpacity>
-                  </Animated.View>
+                  ))}
                 </View>
-                <TextInput
-                  style={[styles.input, isRecording && { color: '#f43f5e' }]}
-                  placeholder={isRecording ? "" : "Tap mic to speak or type here..."}
-                  placeholderTextColor="#475569"
-                  multiline value={text} onChangeText={setText} autoCorrect spellCheck autoCapitalize="sentences"
-                />
-              </View>
 
-              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold', marginTop: 25, marginBottom: 15, textAlign: 'center' }}>PICK A VIBE</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-                {tones.map((t) => (
-                  <TouchableOpacity 
-                    key={t.id} 
-                    style={[{ width: '47%', marginHorizontal: '1.5%', backgroundColor: '#0f172a', borderRadius: 20, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', minHeight: 135 }, tone === t.id && { borderColor: t.color }]}
-                    onPress={() => setTone(t.id)}
-                  >
-                    <MaterialCommunityIcons name={t.icon} size={24} color={tone === t.id ? t.color : '#475569'} />
-                    <Text style={[{ color: '#475569', fontWeight: 'bold', fontSize: 13, marginTop: 8 }, tone === t.id && { color: 'white' }]}>{t.label}</Text>
-                    <Text style={{ color: '#64748b', fontSize: 10, textAlign: 'center', marginTop: 6, lineHeight: 14 }}>{t.desc}</Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity style={styles.translateBtn} onPress={handleTranslate} disabled={loading || transcribing}>
+                  {loading || transcribing ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={[styles.translateBtnText, { color: '#FFFFFF' }]}>Change the Vibe</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-
-              <TouchableOpacity style={styles.translateBtn} onPress={handleTranslate} disabled={loading || transcribing}>
-                {loading || transcribing ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={[styles.translateBtnText, { color: '#FFFFFF' }]}>Change the Vibe</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ marginTop: 0 }}>
-              <View style={styles.resultCard}>
-                <Text style={styles.optionLabel}>SEND THIS ONE</Text>
-                <Text style={styles.resultText}>{translatedText}</Text>
-                <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => copyToClipboard(translatedText)}>
-                    <MaterialCommunityIcons name="content-copy" size={20} color="white" /><Text style={[styles.actionBtnText, { color: 'white' }]}>Copy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => Share.share({ message: translatedText.replace(/["“”]+/g, '') })}>
-                    <MaterialCommunityIcons name="send" size={20} color="white" /><Text style={[styles.actionBtnText, { color: 'white' }]}>Send</Text>
-                  </TouchableOpacity>
+            ) : (
+              <View style={{ marginTop: 0 }}>
+                <View style={styles.resultCard}>
+                  <Text style={styles.optionLabel}>SEND THIS ONE</Text>
+                  <Text style={styles.resultText}>{translatedText}</Text>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => copyToClipboard(translatedText)}>
+                      <MaterialCommunityIcons name="content-copy" size={20} color="white" /><Text style={[styles.actionBtnText, { color: 'white' }]}>Copy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => Share.share({ message: translatedText.replace(/["“”]+/g, '') })}>
+                      <MaterialCommunityIcons name="send" size={20} color="white" /><Text style={[styles.actionBtnText, { color: 'white' }]}>Send</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
+                <TouchableOpacity style={styles.retryBtn} onPress={() => setTranslatedText('')}>
+                  <Text style={[styles.retryText, { color: 'white' }]}>Try another message</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.retryBtn} onPress={() => setTranslatedText('')}>
-                <Text style={[styles.retryText, { color: 'white' }]}>Try another message</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

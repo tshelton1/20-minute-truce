@@ -1,24 +1,25 @@
 /* app/welcome.tsx */
-import * as _React from 'react'; // FIXED: Unified namespace import clears duplicate identifier and unused-var warnings
+import * as _React from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   SafeAreaView, 
-  Dimensions,
   StatusBar,
   Linking,
-  ScrollView 
+  ScrollView,
+  useWindowDimensions 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-const { width: _width } = Dimensions.get('window'); // FIXED: Prefixed with underscore to clear unused-var warning
-
 export default function WelcomeScreen() {
   const router = useRouter();
+  
+  // 🛡️ THE FIX: This hook safely grabs the screen size and updates instantly on device rotation
+  const { height } = useWindowDimensions(); 
 
   const handleGetStarted = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -40,7 +41,8 @@ export default function WelcomeScreen() {
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
+        {/* 🛡️ THE FIX: We pass the dynamic height here, and rely on maxWidth in the stylesheet */}
+        <View style={[styles.content, { minHeight: height - 100 }]}>
           
           {/* Headline Section */}
           <View style={styles.headerSection}>
@@ -121,7 +123,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 35,
     paddingVertical: 14,
     justifyContent: 'space-between', 
-    minHeight: Dimensions.get('window').height - 100, 
+    
+    /* 🛡️ THE FIX: The iPad Magic Constraints */
+    width: '100%',
+    maxWidth: 500,       // Caps the width so it doesn't stretch on tablets
+    alignSelf: 'center', // Forces the whole column into the exact middle of the iPad screen
   },
   headerSection: {
     alignItems: 'center',
@@ -129,10 +135,11 @@ const styles = StyleSheet.create({
   },
   preHeadline: {
     color: '#C41E3A',
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: '900',
     letterSpacing: 3,
     marginBottom: 8,
+    textAlign: 'center',
   },
   mainHeadline: {
     color: '#fff',
