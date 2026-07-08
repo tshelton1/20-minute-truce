@@ -1,45 +1,57 @@
-/* app/breathing.tsx */
-import * as _React from "react"; 
-import { useEffect, useRef, useState } from 'react'; 
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Animated, 
-  Easing, 
-  SafeAreaView, 
+import * as React from "react";
+import { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  SafeAreaView,
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { useRouter, useNavigation } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-const BASE_CIRCLE_SIZE = width * 0.3; 
+const BASE_CIRCLE_SIZE = width * 0.35;
 const BASE_SIZE_RADIUS = BASE_CIRCLE_SIZE / 2;
+
+// ─── LUXURY TOKENS ──────────────────────────────────────────
+const SERIF = Platform.select({ ios: 'Georgia', android: 'serif' });
+const GOLD = '#D8C29A';            // champagne gold — accents, rings, numerals
+const GOLD_SOFT = 'rgba(216,194,154,0.55)';
+const GOLD_FAINT = 'rgba(216,194,154,0.14)';
+const IVORY = '#F4EEE2';           // warm ivory — primary text
+const IVORY_DIM = 'rgba(244,238,226,0.55)';
+// ────────────────────────────────────────────────────────────
 
 export default function BreathingScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const [phase, setPhase] = useState('READY'); 
+  const [phase, setPhase] = useState('READY');
   const [cycle, setCycle] = useState(0);
   const [timer, setTimer] = useState(0);
 
   const bgAnim = useRef(new Animated.Value(0)).current;
   const rotationAnim = useRef(new Animated.Value(0)).current;
   const heartbeatAnim = useRef(new Animated.Value(1)).current;
-  
-  const innerScales = useRef([new Animated.Value(1), new Animated.Value(1)]).current; 
-  const midScales = useRef([new Animated.Value(1), new Animated.Value(1)]).current;   
-  const outerScales = useRef([new Animated.Value(1), new Animated.Value(1)]).current; 
+  const bloomAnim = useRef(new Animated.Value(0)).current;
 
   const meditationSound = useRef<Audio.Sound | null>(null);
   const chakraSound = useRef<Audio.Sound | null>(null);
 
+  // Bolder, distinct color transitions for each phase
   const backgroundColor = bgAnim.interpolate({
     inputRange: [0, 1, 2, 3],
-    outputRange: ['#1a2151', '#2d4a3e', '#1a2151', '#3b1a51'],
+    outputRange: [
+      '#12101B', // 0: READY (Midnight Plum)
+      '#0D3B33', // 1: INHALE (Deep Forest/Teal)
+      '#2B1B4D', // 2: HOLD (Rich Indigo)
+      '#4A1525', // 3: EXHALE (Deep Burgundy)
+    ],
   });
 
   const rotate = rotationAnim.interpolate({
@@ -47,17 +59,16 @@ export default function BreathingScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  // --- FIXED AUDIO LOGIC ---
+  // --- AUDIO LOGIC ---
   useEffect(() => {
     const startMeditationMusic = async () => {
       try {
-        // 🛡️ THE FIX: Set mode correctly and disable mic priority
         await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false, 
+          allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
-          staysActiveInBackground: true, 
+          staysActiveInBackground: true,
           shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false, 
+          playThroughEarpieceAndroid: false,
         });
 
         const { sound } = await Audio.Sound.createAsync(
@@ -69,7 +80,7 @@ export default function BreathingScreen() {
         console.log('Meditation audio load error:', error);
       }
     };
-    
+
     startMeditationMusic();
     startBaseAnimations();
 
@@ -104,7 +115,7 @@ export default function BreathingScreen() {
     Animated.loop(
       Animated.timing(rotationAnim, {
         toValue: 1,
-        duration: 4000,
+        duration: 16000, // Slow, calming continuous rotation
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -119,7 +130,7 @@ export default function BreathingScreen() {
   };
 
   const handleExit = async () => {
-    await stopAllAudio(); 
+    await stopAllAudio();
     router.replace('/(tabs)');
   };
 
@@ -127,12 +138,10 @@ export default function BreathingScreen() {
     setPhase('INHALE');
     setTimer(4);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     Animated.parallel([
       Animated.timing(bgAnim, { toValue: 1, duration: 1000, useNativeDriver: false }),
-      ...innerScales.map(anim => Animated.timing(anim, { toValue: 3.2, duration: 4000, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true })),
-      ...midScales.map(anim => Animated.timing(anim, { toValue: 1.8, duration: 4000, easing: Easing.linear, useNativeDriver: true })),
-      ...outerScales.map(anim => Animated.timing(anim, { toValue: 1.4, duration: 4000, easing: Easing.linear, useNativeDriver: true })),
+      Animated.timing(bloomAnim, { toValue: 1, duration: 4000, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
     ]).start(({ finished }) => {
       if (!finished) return;
 
@@ -140,17 +149,15 @@ export default function BreathingScreen() {
       setTimer(7);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       Animated.timing(bgAnim, { toValue: 2, duration: 1000, useNativeDriver: false }).start();
-      
+
       setTimeout(() => {
         setPhase('EXHALE');
         setTimer(8);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        
+
         Animated.parallel([
           Animated.timing(bgAnim, { toValue: 3, duration: 1000, useNativeDriver: false }),
-          ...innerScales.map(anim => Animated.timing(anim, { toValue: 0.8, duration: 8000, easing: Easing.out(Easing.sin), useNativeDriver: true })),
-          ...midScales.map(anim => Animated.timing(anim, { toValue: 1, duration: 8000, easing: Easing.linear, useNativeDriver: true })),
-          ...outerScales.map(anim => Animated.timing(anim, { toValue: 1, duration: 8000, easing: Easing.linear, useNativeDriver: true })),
+          Animated.timing(bloomAnim, { toValue: 0, duration: 8000, easing: Easing.out(Easing.sin), useNativeDriver: true }),
         ]).start(({ finished }) => {
           if (!finished) return;
 
@@ -166,9 +173,10 @@ export default function BreathingScreen() {
 
   const completeSession = async () => {
     setPhase('COMPLETE');
-    // 🛡️ FIXED: NotificationFeedbackType case correction
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+
+    Animated.timing(bgAnim, { toValue: 0, duration: 2000, useNativeDriver: false }).start();
+
     try {
       if (meditationSound.current) {
         await meditationSound.current.stopAsync();
@@ -178,7 +186,7 @@ export default function BreathingScreen() {
         { shouldPlay: true, volume: 1.0 }
       );
       chakraSound.current = sound;
-      
+
       setTimeout(async () => {
         await stopAllAudio();
         router.replace('/timer?duration=1200');
@@ -209,38 +217,49 @@ export default function BreathingScreen() {
     <Animated.View style={[styles.container, { backgroundColor }]}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>BREATHWORK</Text>
-          <Text style={styles.cycleLabel}>{phase === 'COMPLETE' ? 'Restoring Peace' : `Cycle ${cycle + 1} of 3`}</Text>
+          <Text style={styles.headerTitle}>THE TRUCE BEGINS</Text>
+          <View style={styles.headerRule} />
+          <Text style={styles.cycleLabel}>
+            {phase === 'COMPLETE' ? 'Peace, restored' : `Breath ${cycle + 1} of 3`}
+          </Text>
         </View>
 
         <View style={styles.centerStage}>
-          {outerScales.map((anim, i) => (
-            <Animated.View key={`outer-${i}`} style={[
-              styles.circleBase, 
-              styles.outerRing, 
-              { transform: [{ scale: Animated.multiply(anim, heartbeatAnim) }], opacity: 0.05 + (i * 0.05) }
-            ]} />
-          ))}
+          {/* Outer Rotating Lotus Petals */}
+          <Animated.View style={[styles.flowerContainer, { transform: [{ rotate }] }]}>
+            {[...Array(6)].map((_, i) => {
+              const petalRotate = `${i * 60}deg`;
+              const translateX = bloomAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, BASE_CIRCLE_SIZE * 0.7]
+              });
+              const scale = bloomAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1.4]
+              });
 
-          <Animated.View style={[styles.circleBase, styles.rotatingRing, { transform: [{ scale: midScales[1] }, { rotate }] }]}>
-            {[...Array(8)].map((_, i) => (
-              <View key={i} style={[styles.dot, { transform: [{ rotate: `${i * 45}deg` }, { translateY: -BASE_SIZE_RADIUS * 2.2 }] }]} />
-            ))}
+              return (
+                <Animated.View
+                  key={`petal-${i}`}
+                  style={[
+                    styles.petal,
+                    {
+                      transform: [
+                        { rotate: petalRotate },
+                        { translateX },
+                        { scale }
+                      ]
+                    }
+                  ]}
+                />
+              );
+            })}
           </Animated.View>
 
-          <Animated.View style={[styles.circleBase, styles.midRing, { transform: [{ scale: midScales[0] }] }]} />
-
-          {innerScales.map((anim, i) => (
-            <Animated.View key={`inner-${i}`} style={[
-              styles.circleBase, 
-              styles.innerRing, 
-              { transform: [{ scale: anim }], opacity: 0.1 + (i * 0.15) }
-            ]} />
-          ))}
-
-          <Animated.View style={[styles.coreCircle, { transform: [{ scale: innerScales[0] }] }]}>
+          {/* Inner Pulsing Core */}
+          <Animated.View style={[styles.coreCircle, { transform: [{ scale: heartbeatAnim }] }]}>
             <View style={styles.textContainer}>
-               <Text style={styles.phaseTxt}>
+              <Text style={styles.phaseTxt}>
                 {phase === 'READY' ? 'Ready' : phase === 'INHALE' ? 'Inhale' : phase === 'HOLD' ? 'Hold' : phase === 'EXHALE' ? 'Exhale' : 'Peace'}
               </Text>
               {timer > 0 && phase !== 'COMPLETE' && <Text style={styles.timerTxt}>{timer}</Text>}
@@ -249,14 +268,15 @@ export default function BreathingScreen() {
         </View>
 
         <View style={styles.descriptionBox}>
+          <View style={styles.descriptionRule} />
           <Text style={styles.scienceBody}>
-            This 4-7-8 sequence stimulates the Vagus Nerve, physically forcing your nervous system to lower your heart rate and exit the Flight or Fight mode.
+            The 4-7-8 rhythm quiets the vagus nerve, easing your body out of fight-or-flight — so you can return to each other calm.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.skipBtn} 
+          <TouchableOpacity
+            style={styles.skipBtn}
             onPress={handleExit}
           >
             <Text style={styles.skipBtnText}>Skip to Peace Tools</Text>
@@ -270,37 +290,111 @@ export default function BreathingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { alignItems: 'center', marginTop: 20 },
-  headerTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700', letterSpacing: 4 },
-  cycleLabel: { color: 'white', fontSize: 18, marginTop: 4, fontWeight: '600' },
-  centerStage: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  circleBase: { position: 'absolute', borderRadius: 999 },
-  outerRing: { width: BASE_CIRCLE_SIZE * 3, height: BASE_CIRCLE_SIZE * 3, borderWidth: 1, borderColor: 'white' },
-  rotatingRing: { width: BASE_CIRCLE_SIZE * 2.5, height: BASE_CIRCLE_SIZE * 2.5, borderWidth: 0, justifyContent: 'center', alignItems: 'center' },
-  midRing: { width: BASE_CIRCLE_SIZE * 2, height: BASE_CIRCLE_SIZE * 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  innerRing: { width: BASE_CIRCLE_SIZE * 1.5, height: BASE_CIRCLE_SIZE * 1.5, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  coreCircle: { 
-    width: BASE_CIRCLE_SIZE, 
-    height: BASE_CIRCLE_SIZE, 
-    borderRadius: BASE_CIRCLE_SIZE / 2, 
-    backgroundColor: 'rgba(255,255,255,0.15)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)'
+
+  header: { alignItems: 'center', marginTop: 24 },
+  headerTitle: {
+    color: GOLD_SOFT,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 5,
   },
+  headerRule: {
+    width: 28,
+    height: 1,
+    backgroundColor: GOLD_FAINT,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  cycleLabel: {
+    color: IVORY,
+    fontSize: 19,
+    fontFamily: SERIF,
+    letterSpacing: 1.5,
+  },
+
+  centerStage: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
+  flowerContainer: {
+    position: 'absolute',
+    width: BASE_CIRCLE_SIZE,
+    height: BASE_CIRCLE_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  petal: {
+    position: 'absolute',
+    width: BASE_CIRCLE_SIZE * 1.4,
+    height: BASE_CIRCLE_SIZE * 1.4,
+    borderRadius: (BASE_CIRCLE_SIZE * 1.4) / 2,
+    backgroundColor: 'rgba(216,194,154,0.08)',
+    borderWidth: 1,
+    borderColor: GOLD_SOFT,
+  },
+
+  coreCircle: {
+    position: 'absolute',
+    width: BASE_CIRCLE_SIZE,
+    height: BASE_CIRCLE_SIZE,
+    borderRadius: BASE_SIZE_RADIUS,
+    backgroundColor: 'rgba(216,194,154,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: GOLD,
+    shadowColor: GOLD,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+  },
+
   textContainer: { alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.8)' },
-  phaseTxt: { color: 'white', fontSize: 18, fontWeight: '400', letterSpacing: 1, textAlign: 'center' },
-  timerTxt: { color: 'white', fontSize: 38, fontWeight: '800', marginTop: -5 },
-  descriptionBox: { paddingHorizontal: 40, marginBottom: 20 },
-  scienceBody: { color: 'rgba(255,255,255,0.6)', textAlign: 'center', fontSize: 12, lineHeight: 18, fontStyle: 'italic' },
+
+  phaseTxt: {
+    color: IVORY,
+    fontSize: 20,
+    fontFamily: SERIF,
+    fontStyle: 'italic',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  timerTxt: {
+    color: GOLD,
+    fontSize: 40,
+    fontWeight: '300',
+    fontFamily: SERIF,
+    marginTop: 2,
+  },
+
+  descriptionBox: { paddingHorizontal: 44, marginBottom: 22, alignItems: 'center' },
+  descriptionRule: {
+    width: 28,
+    height: 1,
+    backgroundColor: GOLD_FAINT,
+    marginBottom: 14,
+  },
+  scienceBody: {
+    color: IVORY_DIM,
+    textAlign: 'center',
+    fontSize: 12.5,
+    lineHeight: 20,
+    fontFamily: SERIF,
+    fontStyle: 'italic',
+  },
+
   footer: { paddingHorizontal: 50, marginBottom: 40 },
   skipBtn: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
+    backgroundColor: 'transparent',
+    paddingVertical: 15,
     borderRadius: 30,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: GOLD_SOFT,
   },
-  skipBtnText: { color: '#1a2151', fontSize: 12, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+  skipBtnText: {
+    color: GOLD,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
 });

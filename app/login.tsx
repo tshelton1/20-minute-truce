@@ -1,6 +1,6 @@
 /* app/login.tsx */
 import * as _React from 'react'; 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -14,13 +14,16 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 // PROD-READY: Removed .ts extension. Metro bundler requires extensionless imports for local files.
 import { supabase } from '../src/lib/supabase';
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { sessionMessage } = useLocalSearchParams<{ sessionMessage?: string }>();
+  const shownSessionMessage = useRef(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -28,6 +31,28 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!sessionMessage || shownSessionMessage.current) return;
+
+    shownSessionMessage.current = true;
+    Alert.alert('Signed out', sessionMessage);
+  }, [sessionMessage]);
+
+  // Shared post-login routing: send paired users to the app, others to invite.
+  async function routeAfterAuth(userId: string) {
+    const { data: couple } = await supabase
+      .from('couples')
+      .select('id')
+      .or(`partner_1_id.eq.${userId},partner_2_id.eq.${userId}`)
+      .maybeSingle();
+
+    if (couple) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/invite');
+    }
+  }
 
   async function handleAuth() {
     const cleanEmail = email.trim().toLowerCase(); 
@@ -72,17 +97,7 @@ export default function AuthScreen() {
         
         // 🛡️ THE FIX: Take control back. Explicitly check status and route them immediately.
         if (data?.user) {
-          const { data: couple } = await supabase
-            .from('couples')
-            .select('id')
-            .or(`partner_1_id.eq.${data.user.id},partner_2_id.eq.${data.user.id}`)
-            .maybeSingle();
-
-          if (couple) {
-            router.replace('/(tabs)');
-          } else {
-            router.replace('/invite');
-          }
+          await routeAfterAuth(data.user.id);
         }
       }
     } catch (_error: any) { 
@@ -106,6 +121,43 @@ export default function AuthScreen() {
     }
   }
 
+  // NEW: Sign in with Apple → exchange Apple identity token for a Supabase session.
+  async function handleAppleSignIn() {
+    setLoading(true);
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("Apple didn't return an identity token. Please try again.");
+      }
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        await routeAfterAuth(data.user.id);
+      }
+    } catch (_error: any) {
+      // User tapped "Cancel" on the Apple sheet — stay silent, just stop the spinner.
+      if (_error.code === 'ERR_REQUEST_CANCELED' || _error.code === 'ERR_CANCELED') {
+        return;
+      }
+      console.log("Apple Sign In Error:", _error.message);
+      Alert.alert("Apple Sign In Failed", _error.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // NEW: Password Reset Function
   async function handlePasswordReset() {
@@ -225,6 +277,25 @@ export default function AuthScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Sign in with Apple — iOS only, required by App Store when offering 3rd-party login */}
+          {Platform.OS === 'ios' && (
+            <View style={styles.appleWrapper}>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={12}
+                style={styles.appleBtn}
+                onPress={handleAppleSignIn}
+              />
+            </View>
+          )}
         </View>
 
         <TouchableOpacity 
@@ -257,6 +328,11 @@ const styles = StyleSheet.create({
   forgotText: { color: '#94a3b8', fontSize: 14, letterSpacing: 0.5 },
   primaryBtn: { backgroundColor: '#4ECDC4', borderRadius: 12, padding: 18, alignItems: 'center', shadowColor: '#4ECDC4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, marginTop: 10 },
   primaryBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 16, letterSpacing: 1 },
+  appleWrapper: { marginTop: 20 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  dividerText: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginHorizontal: 12 },
+  appleBtn: { width: '100%', height: 52 },
   footerBtn: { marginTop: 30, alignItems: 'center' },
   footerText: { color: '#94a3b8', fontSize: 14, letterSpacing: 0.5 },
   footerAction: { color: '#4ECDC4', fontWeight: '700' },

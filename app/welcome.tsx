@@ -27,11 +27,11 @@ export default function WelcomeScreen() {
   };
 
   const openPrivacy = () => {
-    Linking.openURL('https://gist.githubusercontent.com/tshelton1/91548bb0fa53e30177e9b7acb758d5da/raw/21f5a1dab50a494f6a5af7b3d372a6bbd4ae2248/PrivacyPolicy.md');
+    Linking.openURL('https://20minutetruce.com/privacy');
   };
 
   const openTerms = () => {
-    Linking.openURL('https://gist.githubusercontent.com/tshelton1/059deba6c55a19e2ae50a8fd757cd670/raw/1e3e0aff774c98212661c589397acf725b0dbd80/TermsOfUse.md');
+    Linking.openURL('https://20minutetruce.com/terms');
   };
 
   return (

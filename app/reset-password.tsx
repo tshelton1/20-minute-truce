@@ -1,9 +1,17 @@
 /* app/reset-password.tsx */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
+
+const withTimeout = <T,>(promise: Promise<T>, ms = 15000): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("This is taking too long. Please check your connection and try again.")), ms)
+    ),
+  ]);
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -13,7 +21,8 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   async function handleSaveNewPassword() {
     if (loading) return;
@@ -22,71 +31,48 @@ export default function ResetPasswordScreen() {
     const cleanPassword = password.trim();
     const cleanEmail = String(email).trim();
 
-    console.log("=== BYPASS RESET INITIATED ===");
-
     if (!cleanCode || !cleanPassword || !confirmPassword) {
-      return Alert.alert("Required", "Please fill out all fields.");
+      setErrorMessage('Please fill out all fields.');
+      return;
     }
 
     if (cleanPassword !== confirmPassword.trim()) {
-      return Alert.alert("Error", "Passwords do not match.");
+      setErrorMessage('Passwords do not match.');
+      return;
     }
 
+    setErrorMessage('');
     setLoading(true);
 
     try {
-      console.log("1. Verifying OTP...");
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: cleanEmail,
-        token: cleanCode,
-        type: 'recovery',
-      });
+      const { error: verifyError } = await withTimeout(
+        supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanCode,
+          type: 'recovery',
+        })
+      );
 
       if (verifyError) throw verifyError;
-      
-      console.log("2. OTP Verified! Getting temporary session token...");
-      const { data: { session } } = await supabase.auth.getSession();
 
-      if (!session) {
-        throw new Error("Could not securely connect. Please try again.");
+      const { error: updateError } = await withTimeout(
+        supabase.auth.updateUser({ password: cleanPassword })
+      );
+
+      if (updateError) throw updateError;
+
+      try {
+        await withTimeout(supabase.auth.signOut(), 5000);
+      } catch {
+        // Password already updated; proceed to login even if sign-out fails or times out.
       }
 
-      console.log("3. BYPASSING SDK: Sending raw API request directly to server...");
-      
-      // 🚀 THE NUCLEAR BYPASS 🚀
-      // This completely ignores the Supabase SDK and its broken storage locks.
-      // We are forcing the database to update the password directly.
-      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
-        },
-        body: JSON.stringify({ password: cleanPassword })
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update password on the server.");
-      }
-
-      console.log("4. Password forcefully updated via API!");
-
-      console.log("5. Signing out ghost session...");
-      await supabase.auth.signOut();
-
+      router.replace('/login');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Something went wrong. Please try again.';
+      setErrorMessage(message);
+    } finally {
       setLoading(false);
-
-      setTimeout(() => {
-        Alert.alert("Success!", "Your password has been securely updated.", [
-          { text: "Log In", onPress: () => router.replace('/login') }
-        ]);
-      }, 500);
-      
-    } catch (_error: any) {
-      setLoading(false);
-      console.error("Caught Error:", _error.message);
-      Alert.alert("Error", _error?.message || "Something went wrong. Please try again.");
     }
   }
 
@@ -99,6 +85,10 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View style={styles.form}>
+          {errorMessage ? (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          ) : null}
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>8-Digit Code</Text>
             <TextInput
@@ -120,9 +110,11 @@ export default function ResetPasswordScreen() {
                 placeholder="••••••••"
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 secureTextEntry={!showPassword}
-                textContentType="password" 
+                textContentType="oneTimeCode"
+                autoComplete="off"
                 autoCapitalize="none"
                 autoCorrect={false}
+                spellCheck={false}
                 value={password}
                 onChangeText={setPassword}
               />
@@ -139,9 +131,11 @@ export default function ResetPasswordScreen() {
               placeholder="••••••••"
               placeholderTextColor="rgba(255,255,255,0.3)"
               secureTextEntry={!showPassword}
-              textContentType="password" 
+              textContentType="oneTimeCode"
+              autoComplete="off"
               autoCapitalize="none"
               autoCorrect={false}
+              spellCheck={false}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
             />
@@ -171,6 +165,7 @@ const styles = StyleSheet.create({
   logoText: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 2, marginBottom: 8, textAlign: 'center' },
   subTitle: { color: '#94a3b8', fontSize: 16, fontWeight: '300', textAlign: 'center' },
   form: { width: '100%' },
+  errorText: { color: '#f87171', fontSize: 14, fontWeight: '600', textAlign: 'center', marginBottom: 16, lineHeight: 20 },
   inputGroup: { marginBottom: 20 },
   label: { color: '#4ECDC4', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
   input: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 16 },

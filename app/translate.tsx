@@ -11,19 +11,20 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import Purchases, { type CustomerInfo } from 'react-native-purchases';
-
-interface PurchasesInterface {
-  getCustomerInfo(): Promise<CustomerInfo>;
-}
-const RC = Purchases as unknown as PurchasesInterface;
 
 import { supabase } from '../src/lib/supabase';
-import TranslatorPaywall from '../components/TranslatorPaywall';
+import PremiumPaywall from '../components/PremiumPaywall';
 import { sharedStyles as styles } from '../components/sharedStyles';
-import { useVoice } from '../components/useVoice'; 
+import { useVoice } from '../components/useVoice';
+import {
+  canUse,
+  FREE_USAGE_LIMITS,
+  getUsageCount,
+  incrementUsage,
+  isPremium,
+} from '../src/lib/usageGate';
 
-const MAX_FREE_SESSIONS = 5;
+const MAX_FREE_SESSIONS = FREE_USAGE_LIMITS.translator;
 
 export default function TranslatorScreen() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function TranslatorScreen() {
   const [usageCount, setUsageCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
 
   const { isRecording, startRecording, stopRecording, transcribing } = useVoice();
 
@@ -50,33 +52,17 @@ export default function TranslatorScreen() {
 
   const checkStatus = async () => {
     try {
-      let hasActiveSub = false;
-      try {
-        const customerInfo = await RC.getCustomerInfo();
-        hasActiveSub = customerInfo.entitlements.active['translator_access'] !== undefined;
-      } catch (e) {
-        console.log("RC Offline on Load");
-      }
-      
-      setIsSubscribed(hasActiveSub);
-      
-      if (hasActiveSub) {
-        setUsageCount(-1); 
+      const premium = await isPremium();
+      setIsSubscribed(premium);
+
+      if (premium) {
+        setUsageCount(-1);
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('translator_usage_count')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile) setUsageCount(profile.translator_usage_count ?? 0);
-      }
-    } catch (e: any) { 
-      console.log("Status Check Error", e); 
+      setUsageCount(await getUsageCount('translator'));
+    } catch (e: any) {
+      console.log("Status Check Error", e);
     }
   };
 
@@ -100,6 +86,48 @@ export default function TranslatorScreen() {
     }
   };
 
+  const handlePaywallClose = async () => {
+    setShowPaywall(false);
+    await checkStatus();
+
+    if (await isPremium()) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      action?.();
+    } else {
+      pendingActionRef.current = null;
+    }
+  };
+
+  const executeTranslate = async () => {
+    Keyboard.dismiss();
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-message', {
+        body: { text, tone }
+      });
+
+      if (error) throw error;
+
+      if (data?.translation) {
+        setTranslatedText(data.translation);
+
+        if (!(await isPremium())) {
+          const newCount = await incrementUsage('translator');
+          setUsageCount(newCount);
+        }
+      } else if (data?.error) {
+         Alert.alert("AI Check", data.error);
+      }
+    } catch (_error: any) {
+      console.error("Translation Error:", _error);
+      Alert.alert("Diagnostics", `Claude says: ${_error.message || JSON.stringify(_error)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleTranslate = async () => {
     if (!text.trim()) {
       Alert.alert(
@@ -110,62 +138,19 @@ export default function TranslatorScreen() {
       return;
     }
 
-    Keyboard.dismiss();
-    setLoading(true);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert("Auth Error", "You must be logged in to translate.");
-        setLoading(false);
-        return;
-      }
-
-      let hasAccess = false;
-      try {
-        const customerInfo = await RC.getCustomerInfo();
-        hasAccess = customerInfo.entitlements.active['translator_access'] !== undefined;
-      } catch (rcError) {
-        console.log("RevenueCat Offline - Defaulting to Free Tier");
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('translator_usage_count')
-        .eq('id', user.id)
-        .single();
-      
-      const currentUsage = profile?.translator_usage_count || 0;
-    
-      if (!hasAccess && currentUsage >= MAX_FREE_SESSIONS) {
-        setShowPaywall(true);
-        setLoading(false);
-        return; 
-      }
-    
-      const { data, error } = await supabase.functions.invoke('translate-message', {
-        body: { text, tone }
-      });
-
-      if (error) throw error;
-
-      if (data?.translation) {
-        setTranslatedText(data.translation);
-        
-        if (!hasAccess) {
-          const newCount = currentUsage + 1;
-          await supabase.from('profiles').update({ translator_usage_count: newCount }).eq('id', user.id);
-          setUsageCount(newCount);
-        }
-      } else if (data?.error) {
-         Alert.alert("AI Check", data.error);
-      }
-    } catch (_error: any) { 
-      console.error("Translation Error:", _error);
-      Alert.alert("Diagnostics", `Claude says: ${_error.message || JSON.stringify(_error)}`);
-    } finally { 
-      setLoading(false); 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Auth Error", "You must be logged in to translate.");
+      return;
     }
+
+    if (!(await canUse('translator'))) {
+      pendingActionRef.current = () => { void executeTranslate(); };
+      setShowPaywall(true);
+      return;
+    }
+
+    await executeTranslate();
   };
 
   const copyToClipboard = async (content: string) => {
@@ -176,7 +161,7 @@ export default function TranslatorScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TranslatorPaywall isVisible={showPaywall} onClose={() => { setShowPaywall(false); checkStatus(); }} />
+      <PremiumPaywall isVisible={showPaywall} onClose={handlePaywallClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         
         {/* 📱 iPad Fix: Wrapped Header in a Max Width container */}

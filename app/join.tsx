@@ -40,27 +40,20 @@ export default function JoinScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Authentication required.");
 
-      const { data: couple, error: fetchError } = await supabase
-        .from('couples')
-        .select('*')
-        .eq('pairing_token', code.toUpperCase())
-        .is('partner_2_id', null) 
-        .single();
+      const { data, error } = await supabase.rpc('join_couple', {
+        invite_code: code.toUpperCase(),
+      });
 
-      if (fetchError || !couple) {
-        throw new Error("Invalid or expired code. Ensure your partner is on the 'Awaiting' screen.");
+      if (error) {
+        throw new Error("Unable to connect. Please try again.");
       }
 
-      if (couple.partner_1_id === user.id) {
-        throw new Error("You cannot bridge a gap with yourself. Please have your partner join.");
+      if (!data?.success) {
+        throw new Error(
+          data?.message ??
+            "Invalid or expired code. Ensure your partner is on the 'Awaiting' screen."
+        );
       }
-
-      const { error: updateError } = await supabase
-        .from('couples')
-        .update({ partner_2_id: user.id })
-        .eq('pairing_token', code.toUpperCase());
-
-      if (updateError) throw updateError;
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/breathing');

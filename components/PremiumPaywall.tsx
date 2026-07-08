@@ -1,30 +1,30 @@
-/* components/MediatorPaywall.tsx */
-import * as _React from "react"; 
+/* components/PremiumPaywall.tsx */
+import * as _React from "react";
 import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Modal, 
-  TouchableOpacity, 
-  Alert, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   Linking,
-  Platform
+  Platform,
 } from 'react-native';
-import Purchases, { 
-  type PurchasesPackage, 
-  type PurchasesError, 
+import Purchases, {
+  PACKAGE_TYPE,
+  type PurchasesPackage,
+  type PurchasesError,
   type CustomerInfo,
-  type PurchasesOfferings
+  type PurchasesOfferings,
 } from 'react-native-purchases';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Constants from 'expo-constants'; 
+import Constants from 'expo-constants';
 
-// PROD-READY: Interface to solve "Property does not exist" errors in Deno
 interface PurchasesInterface {
   isConfigured(): Promise<boolean>;
   configure(config: { apiKey: string }): void;
@@ -35,18 +35,34 @@ interface PurchasesInterface {
 
 const RC = Purchases as unknown as PurchasesInterface;
 
+type PlanType = 'ANNUAL' | 'MONTHLY';
+
 interface Props {
   isVisible: boolean;
   onClose: () => void;
 }
 
-export default function MediatorPaywall({ isVisible, onClose }: Props) {
+function isAnnualPackage(pkg: PurchasesPackage): boolean {
+  return pkg.packageType === PACKAGE_TYPE.ANNUAL;
+}
+
+function isMonthlyPackage(pkg: PurchasesPackage): boolean {
+  return pkg.packageType === PACKAGE_TYPE.MONTHLY;
+}
+
+export default function PremiumPaywall({ isVisible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
-  const [pkg, setPkg] = useState<PurchasesPackage | null>(null);
-  
-  const TERMS_URL = 'https://gist.githubusercontent.com/tshelton1/059deba6c55a19e2ae50a8fd757cd670/raw/d8532da6e58f5b36d2cd458e86237b2b85c55f53/TermsOfUse.md';
-  const PRIVACY_URL = 'https://gist.githubusercontent.com/tshelton1/91548bb0fa53e30177e9b7acb758d5da/raw/7d28903018b338cafc19aa1e3f59ad4d7e36b6e2/PrivacyPolicy.md';
+  const [annualPkg, setAnnualPkg] = useState<PurchasesPackage | null>(null);
+  const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>('ANNUAL');
+
+  const TERMS_URL = 'https://20minutetruce.com/terms';
+  const PRIVACY_URL = 'https://20minutetruce.com/privacy';
   const UNIFORM_SPACING = 0.5;
+
+  const selectedPkg = selectedPlan === 'ANNUAL' ? annualPkg : monthlyPkg;
+  const annualPriceString = annualPkg?.product.priceString ?? '$59.99';
+  const monthlyPriceString = monthlyPkg?.product.priceString ?? '$8.99';
 
   useEffect(() => {
     if (isVisible) {
@@ -58,15 +74,15 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
     try {
       if (Constants.appOwnership === 'expo') {
         console.log("ℹ️ RevenueCat: Running in Expo Go. Skipping native store configuration.");
-        return; 
+        return;
       }
 
       const configured = await RC.isConfigured();
       if (!configured) {
-        const apiKey = Platform.OS === 'ios' 
-          ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY 
+        const apiKey = Platform.OS === 'ios'
+          ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
           : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
-        
+
         if (!apiKey) {
           console.error("RevenueCat API Key missing");
           return;
@@ -75,15 +91,21 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
       }
 
       const offerings = await RC.getOfferings();
-      const mediatorPkg = offerings.all['mediator_offering']?.availablePackages?.[0];
-      const currentPkg = offerings.current?.availablePackages?.[0];
+      const packages =
+        offerings.all['premium_offering']?.availablePackages ??
+        offerings.current?.availablePackages ??
+        [];
 
-      if (mediatorPkg) {
-        setPkg(mediatorPkg);
-      } else if (currentPkg) {
-        setPkg(currentPkg);
-      }
-    } catch (e: any) {
+      let annual = packages.find(isAnnualPackage) ?? null;
+      let monthly = packages.find(isMonthlyPackage) ?? null;
+
+      if (!annual && packages[0]) annual = packages[0];
+      if (!monthly && packages[1]) monthly = packages[1];
+
+      setAnnualPkg(annual);
+      setMonthlyPkg(monthly);
+      setSelectedPlan('ANNUAL');
+    } catch (e: unknown) {
       console.error("RevenueCat Offering Load Error:", e);
     }
   };
@@ -91,12 +113,12 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
   const handlePurchase = async () => {
     if (__DEV__ && Constants.appOwnership === 'expo') {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      Alert.alert("Development Mode", "Native store features are disabled in Expo Go. Unlocking UI for testing.");
+      Alert.alert("Development Mode", "Purchases can't run in Expo Go — test purchases in TestFlight. The paywall will close (feature stays locked).");
       onClose();
       return;
     }
 
-    if (!pkg) {
+    if (!selectedPkg) {
       Alert.alert("Service Error", "Please check your internet connection.");
       return;
     }
@@ -104,15 +126,14 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
     setLoading(true);
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const purchaseResult = await RC.purchasePackage(pkg);
+      const purchaseResult = await RC.purchasePackage(selectedPkg);
       const customerInfo = purchaseResult.customerInfo;
-      
-      if (customerInfo.entitlements.active['mediator_access'] !== undefined) {
-        // 🛡️ FIXED: Corrected case to NotificationFeedbackType
+
+      if (customerInfo.entitlements.active['premium_access'] !== undefined) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onClose();
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       const error = e as PurchasesError;
       if (!error.userCancelled) {
         Alert.alert("Transaction Failed", error.message);
@@ -126,19 +147,73 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
     setLoading(true);
     try {
       const customerInfo = await RC.restorePurchases();
-      if (customerInfo.entitlements.active['mediator_access'] !== undefined) {
+      if (customerInfo.entitlements.active['premium_access'] !== undefined) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("Success", "Your access has been restored.");
         onClose();
       } else {
         Alert.alert("Notice", "No active subscription found.");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       const error = e as Error;
       Alert.alert("Restore Failed", error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const peaceHighlight = selectedPlan === 'ANNUAL'
+    ? `Your peace: ${annualPriceString}/year (about $5/month)`
+    : `Your peace: ${monthlyPriceString}/month`;
+
+  const subBtnText = selectedPlan === 'ANNUAL'
+    ? `${annualPriceString} PER YEAR`
+    : `${monthlyPriceString} PER MONTH`;
+
+  const billingNote = selectedPlan === 'ANNUAL'
+    ? 'Auto-renews yearly until canceled. Cancel anytime in your App Store account settings.'
+    : 'Auto-renews monthly until canceled. Cancel anytime in your App Store account settings.';
+
+  const handleSelectPlan = async (plan: PlanType) => {
+    await Haptics.selectionAsync();
+    setSelectedPlan(plan);
+  };
+
+  const renderPlanCard = (
+    plan: PlanType,
+    badgeLabel: string,
+    priceLine: string,
+    subtitle: string,
+  ) => {
+    const isSelected = selectedPlan === plan;
+
+    return (
+      <TouchableOpacity
+        key={plan}
+        style={[
+          styles.planCard,
+          isSelected ? styles.planCardSelected : styles.planCardUnselected,
+        ]}
+        onPress={() => { void handleSelectPlan(plan); }}
+        activeOpacity={0.85}
+      >
+        <View style={styles.planCardRow}>
+          <View style={styles.planCardContent}>
+            <View style={[styles.planBadge, isSelected ? styles.planBadgeSelected : styles.planBadgeUnselected]}>
+              <Text style={[styles.planBadgeText, isSelected ? styles.planBadgeTextSelected : styles.planBadgeTextUnselected]}>
+                {badgeLabel}
+              </Text>
+            </View>
+            <Text style={[styles.planPrice, !isSelected && styles.planTextMuted]}>{priceLine}</Text>
+            <Text style={[styles.planSubtitle, !isSelected && styles.planTextMuted]}>{subtitle}</Text>
+          </View>
+
+          <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
+            {isSelected ? <View style={styles.radioDot} /> : null}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -150,13 +225,13 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
               <View style={styles.header}>
                 <View style={styles.emergencyBadge}>
                   <MaterialCommunityIcons name="shield-check" size={16} color="#0f172a" />
-                  <Text style={styles.emergencyBadgeText}>PEACE COMMAND CENTER</Text>
+                  <Text style={styles.emergencyBadgeText}>TRUCE PREMIUM</Text>
                 </View>
 
                 <Text style={[styles.title, { letterSpacing: UNIFORM_SPACING }]}>
                   STOP THE FIGHTS BEFORE THEY BREAK YOUR HOME
                 </Text>
-                
+
                 <Text style={[styles.subText, { letterSpacing: UNIFORM_SPACING }]}>
                   Fights are scary. They hurt your heart and ruin your day. Stop guessing why you are mad and start fixing your love right now.
                 </Text>
@@ -172,7 +247,7 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
                     <Text style={styles.painDesc}>I help you play fair so your small fights don't turn into big breakups.</Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.painItem}>
                   <View style={[styles.iconContainer, { backgroundColor: 'rgba(250, 204, 21, 0.15)' }]}>
                     <MaterialCommunityIcons name="map-search-outline" size={22} color="#facc15" />
@@ -188,8 +263,8 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
                     <MaterialCommunityIcons name="heart-flash" size={22} color="#f43f5e" />
                   </View>
                   <View style={styles.painContent}>
-                    <Text style={[styles.painTitle, { color: '#f43f5e' }]}>FIX THE MOOD FAST</Text>
-                    <Text style={styles.painDesc}>Don't wait for a Therapist. I help you stop the anger and the fighting today.</Text>
+                    <Text style={[styles.painTitle, { color: '#f43f5e' }]}>EVERYTHING UNLOCKED</Text>
+                    <Text style={styles.painDesc}>Unlimited Translator, unlimited Mediator, and your personal Pattern Reports — all in one.</Text>
                   </View>
                 </View>
               </View>
@@ -197,9 +272,22 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
               <View style={styles.priceComparisonContainer}>
                 <Text style={styles.closingCall}>Therapy costs $200 for one hour.</Text>
                 <Text style={styles.divorceWarning}>Divorce costs half of everything you own.</Text>
-                <Text style={styles.peaceHighlight}>
-                   Your peace is only {pkg ? pkg.product.priceString : "$6.99"}/mo
-                </Text>
+                <Text style={styles.peaceHighlight}>{peaceHighlight}</Text>
+              </View>
+
+              <View style={styles.planCards}>
+                {renderPlanCard(
+                  'ANNUAL',
+                  'BEST VALUE',
+                  `${annualPriceString}/year`,
+                  "That's about $5/month — save 44%",
+                )}
+                {renderPlanCard(
+                  'MONTHLY',
+                  'FLEXIBLE',
+                  `${monthlyPriceString}/month`,
+                  'Cancel anytime — no commitment',
+                )}
               </View>
 
               <TouchableOpacity style={styles.premiumBtn} onPress={handlePurchase} disabled={loading}>
@@ -208,15 +296,15 @@ export default function MediatorPaywall({ isVisible, onClose }: Props) {
                 ) : (
                   <View style={styles.btnContent}>
                     <Text style={styles.premiumBtnText}>SAVE MY LOVE NOW</Text>
-                    <Text style={styles.subBtnText}>{pkg ? pkg.product.priceString : "$6.99"} — CHEAPER THAN LUNCH</Text>
+                    <Text style={styles.subBtnText}>{subBtnText}</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
-              <Text style={styles.billingNote}>Cancel anytime. Being happy is worth it.</Text>
-              
+              <Text style={styles.billingNote}>{billingNote}</Text>
+
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeText}>No, I'll just keep fighting on my own</Text>
+                <Text style={styles.closeText}>Maybe later</Text>
               </TouchableOpacity>
 
               <View style={styles.footerLegal}>
@@ -256,15 +344,105 @@ const styles = StyleSheet.create({
   closingCall: { color: '#94a3b8', fontSize: 12, textAlign: 'center' },
   divorceWarning: { color: '#f87171', fontWeight: '700', fontSize: 12, textAlign: 'center', marginTop: 2 },
   peaceHighlight: { color: 'white', fontWeight: '800', fontSize: 15, textAlign: 'center', marginTop: 5 },
+  planCards: { width: '100%', marginTop: 18, gap: 12 },
+  planCard: {
+    width: '100%',
+    minHeight: 112,
+    padding: 17,
+    borderRadius: 20,
+  },
+  planCardSelected: {
+    borderWidth: 2,
+    borderColor: '#4ECDC4',
+    backgroundColor: 'rgba(78, 205, 196, 0.08)',
+    shadowColor: '#4ECDC4',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  planCardUnselected: {
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.25)',
+    backgroundColor: '#0f172a',
+  },
+  planCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  planCardContent: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  planBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  planBadgeSelected: {
+    backgroundColor: '#4ECDC4',
+    borderWidth: 0,
+  },
+  planBadgeUnselected: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.5)',
+  },
+  planBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  planBadgeTextSelected: {
+    color: '#0f172a',
+  },
+  planBadgeTextUnselected: {
+    color: '#4ECDC4',
+  },
+  planPrice: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  planSubtitle: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  planTextMuted: {
+    opacity: 0.75,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: '#4ECDC4',
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4ECDC4',
+  },
   premiumBtn: { backgroundColor: '#4ECDC4', width: '100%', paddingVertical: 18, borderRadius: 100, marginTop: 20, alignItems: 'center', shadowColor: '#4ECDC4', shadowOpacity: 0.3, shadowRadius: 10 },
   btnContent: { alignItems: 'center' },
   premiumBtnText: { color: '#0f172a', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
   subBtnText: { color: '#0f172a', fontWeight: '700', fontSize: 10, marginTop: 2, opacity: 0.8 },
-  billingNote: { color: '#475569', fontSize: 10, marginTop: 10 },
+  billingNote: { color: '#475569', fontSize: 10, marginTop: 10, textAlign: 'center', lineHeight: 14 },
   closeBtn: { marginTop: 20 },
   closeText: { color: '#64748b', fontSize: 13, textAlign: 'center', textDecorationLine: 'underline', fontWeight: '700' },
   footerLegal: { marginTop: 35, alignItems: 'center', width: '100%', opacity: 0.8 },
   legalLinksRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   legalLink: { color: '#94a3b8', fontSize: 11, fontWeight: '700' },
-  divider: { color: '#334155', marginHorizontal: 15 }
+  divider: { color: '#334155', marginHorizontal: 15 },
 });

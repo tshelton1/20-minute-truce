@@ -11,22 +11,18 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Purchases, { type CustomerInfo } from 'react-native-purchases';
 
 import { supabase } from '../../src/lib/supabase';
-import MediatorPaywall from '../../components/MediatorPaywall';
+import PremiumPaywall from '../../components/PremiumPaywall';
 import { useVoice } from '../../components/useVoice';
+import {
+  canUse,
+  FREE_USAGE_LIMITS,
+  getMediatorCount,
+  isPremium,
+} from '../../src/lib/usageGate';
 
-type AsyncStorageType = { setItem: (key: string, value: string) => Promise<void> };
-const Storage = AsyncStorage as unknown as AsyncStorageType;
-
-interface PurchasesInterface {
-  getCustomerInfo(): Promise<CustomerInfo>;
-}
-const RC = Purchases as unknown as PurchasesInterface;
-
-const MAX_FREE_SESSIONS = 3;
+const MAX_FREE_SESSIONS = FREE_USAGE_LIMITS.mediator;
 
 export default function MediatorScreen() {
   const router = useRouter();
@@ -39,6 +35,7 @@ export default function MediatorScreen() {
   const [loading, setLoading] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [showPaywall, setShowPaywall] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
   const [adviceSections, setAdviceSections] = useState<{title: string, content: string}[]>([]);
 
   const voiceA = useVoice();
@@ -63,35 +60,31 @@ export default function MediatorScreen() {
 
   const initializeMediator = async () => {
     try {
-      let hasActiveSub = false;
-      try {
-        const customerInfo = await RC.getCustomerInfo();
-        hasActiveSub = customerInfo.entitlements.active['mediator_access'] !== undefined;
-      } catch (rcError) {
-        console.log("RC Offline on Load");
-      }
-
-      if (hasActiveSub) {
-        setUsageCount(-1); 
+      const premium = await isPremium();
+      if (premium) {
+        setUsageCount(-1);
         return;
       }
-      
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('mediator_usage_count')
-          .eq('id', user.id)
-          .single();
-
-        if (profile) {
-          const count = profile.mediator_usage_count ?? 0;
-          setUsageCount(count);
-          await Storage.setItem('mediator_usage_count', count.toString());
-        }
+        setUsageCount(await getMediatorCount(user.id));
       }
     } catch (e) {
       console.log("Mediator Init Error", e);
+    }
+  };
+
+  const handlePaywallClose = async () => {
+    setShowPaywall(false);
+    await initializeMediator();
+
+    if (await isPremium()) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      action?.();
+    } else {
+      pendingActionRef.current = null;
     }
   };
 
@@ -159,12 +152,7 @@ export default function MediatorScreen() {
     setAdviceSections(formatted);
   };
 
-  const handleMediate = async () => {
-    if (!personA.trim() || !personB.trim() || !userName.trim() || !partnerName.trim()) {
-      Alert.alert("Hold on", "Names and perspectives are required.");
-      return;
-    }
-    
+  const executeMediate = async () => {
     Keyboard.dismiss();
     setLoading(true);
 
@@ -176,35 +164,12 @@ export default function MediatorScreen() {
         return;
       }
 
-      let isSubscribed = false;
-      try {
-        const customerInfo = await RC.getCustomerInfo();
-        isSubscribed = customerInfo.entitlements.active['mediator_access'] !== undefined;
-      } catch (rcError) {
-        console.log("RevenueCat Offline - Defaulting to Free Tier");
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('mediator_usage_count')
-        .eq('id', user.id)
-        .single();
-      
-      const currentUsage = profile?.mediator_usage_count || 0;
-
-      if (!isSubscribed && currentUsage >= MAX_FREE_SESSIONS) {
-        setShowPaywall(true);
-        setLoading(false);
-        return;
-      }
-
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
+
       const { data, error } = await supabase.functions.invoke('mediate-conflict', {
         body: { userName, partnerName, personA, personB }
       });
 
-      // 🛡️ PUBLISHABLE READY: Prevent "Uncaught in Promise" crash by handling the error directly
       if (error) {
         console.error("Edge Function Error:", error);
         Alert.alert("Diagnostic Server Error", error.message || "The AI server returned an error.");
@@ -215,28 +180,40 @@ export default function MediatorScreen() {
       if (data?.analysis) {
         parseAdvice(data.analysis);
         await saveMediationToSupabase(data.analysis);
-        
-        if (!isSubscribed) {
-          const newCount = currentUsage + 1;
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ mediator_usage_count: newCount })
-            .eq('id', user.id);
 
-          if (!updateError) {
-            setUsageCount(newCount);
-            await Storage.setItem('mediator_usage_count', newCount.toString());
-          }
+        if (!(await isPremium())) {
+          setUsageCount(await getMediatorCount(user.id));
         }
       } else if (data?.error) {
         Alert.alert("AI Error", data.error);
       }
-    } catch (_error: any) { 
+    } catch (_error: any) {
       console.error("Mediate Client Error:", _error);
       Alert.alert("Error", "The Mediator is currently unreachable. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMediate = async () => {
+    if (!personA.trim() || !personB.trim() || !userName.trim() || !partnerName.trim()) {
+      Alert.alert("Hold on", "Names and perspectives are required.");
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Auth Error", "You must be logged in to use the Mediator.");
+      return;
+    }
+
+    if (!(await canUse('mediator', user.id))) {
+      pendingActionRef.current = () => { void executeMediate(); };
+      setShowPaywall(true);
+      return;
+    }
+
+    await executeMediate();
   };
 
   const startNewMediation = () => {
@@ -254,7 +231,7 @@ export default function MediatorScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <MediatorPaywall isVisible={showPaywall} onClose={() => { setShowPaywall(false); initializeMediator(); }} />
+      <PremiumPaywall isVisible={showPaywall} onClose={handlePaywallClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconPad}>

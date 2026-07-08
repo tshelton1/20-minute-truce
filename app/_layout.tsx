@@ -8,6 +8,12 @@ import Purchases from 'react-native-purchases';
 // PROD-READY: Mandatory extensions for resolution
 import { supabase } from '../src/lib/supabase';
 import { initRevenueCat } from '../src/lib/revenueCat';
+import {
+  clearInvalidRefreshSession,
+  INVALID_REFRESH_TOKEN_MESSAGE,
+  isExplicitSignOutInProgress,
+  registerInvalidRefreshTokenHandler,
+} from '../src/lib/authSession';
 
 /**
  * PROD-READY: Interface and Type-safe cast to resolve 
@@ -46,51 +52,87 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isReady) return;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
-      const currentSegment = segments[0] || '';
-      const inAuthGroup = ['welcome', 'login', 'index', ''].includes(currentSegment);
+    const redirectToLoginWithSessionMessage = () => {
+      router.replace({
+        pathname: '/login',
+        params: { sessionMessage: INVALID_REFRESH_TOKEN_MESSAGE },
+      });
+    };
 
-      if (session?.user) {
-        // 🛡️ SYNC IDENTITY: Guarded by isConfigured to prevent Singleton errors
-        const configured = await RC.isConfigured();
-        if (configured) {
-          try {
-            await RC.logIn(session.user.id);
-          } catch (e: unknown) {
-            console.error("RC Identity Sync Error:", e);
-          }
-        }
-        
-        // PAIRING LOGIC
-        const { data: couple } = await supabase
-          .from('couples')
-          .select('id')
-          .or(`partner_1_id.eq.${session.user.id},partner_2_id.eq.${session.user.id}`)
-          .maybeSingle();
+    registerInvalidRefreshTokenHandler(() => {
+      setTimeout(() => {
+        void clearInvalidRefreshSession(supabase);
+      }, 0);
+    });
 
-        if (inAuthGroup) {
-          if (!couple) {
-            router.replace('/invite');
+    setTimeout(() => {
+      void supabase.auth.getSession();
+    }, 0);
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+      const invalidRefreshSignOut =
+        event === 'SIGNED_OUT' && !session && !isExplicitSignOutInProgress();
+
+      setTimeout(() => {
+        void (async () => {
+          const currentSegment = segments[0] || '';
+          const inAuthGroup = ['welcome', 'login', 'index', ''].includes(currentSegment);
+
+          if (session?.user) {
+            if (currentSegment === 'reset-password') {
+              return;
+            }
+
+            // 🛡️ SYNC IDENTITY: Guarded by isConfigured to prevent Singleton errors
+            const configured = await RC.isConfigured();
+            if (configured) {
+              try {
+                await RC.logIn(session.user.id);
+              } catch (e: unknown) {
+                console.error("RC Identity Sync Error:", e);
+              }
+            }
+            
+            // PAIRING LOGIC
+            const { data: couple } = await supabase
+              .from('couples')
+              .select('id')
+              .or(`partner_1_id.eq.${session.user.id},partner_2_id.eq.${session.user.id}`)
+              .maybeSingle();
+
+            if (inAuthGroup) {
+              if (!couple) {
+                router.replace('/invite');
+              } else {
+                router.replace('/(tabs)');
+              }
+            }
           } else {
-            router.replace('/(tabs)');
-          }
-        }
-      } else {
-        // LOGOUT CLEANUP
-        const configured = await RC.isConfigured();
-        if (configured) {
-          try {
-            await RC.logOut();
-          } catch (_e: unknown) {
-            console.log("RC Session Cleaned");
-          }
-        }
+            // LOGOUT CLEANUP
+            const configured = await RC.isConfigured();
+            if (configured) {
+              try {
+                await RC.logOut();
+              } catch (_e: unknown) {
+                console.log("RC Session Cleaned");
+              }
+            }
 
-        const isProtectedScreen = ['invite', 'join', '(tabs)', 'breathing', 'timer', 'translate', 'cycle-breaker'].includes(currentSegment);
-        if (isProtectedScreen) {
-          router.replace('/welcome');
-        }
-      }
+            if (invalidRefreshSignOut) {
+              const isProtectedScreen = ['invite', 'join', '(tabs)', 'breathing', 'timer', 'translate', 'cycle-breaker'].includes(currentSegment);
+              if (isProtectedScreen) {
+                redirectToLoginWithSessionMessage();
+              }
+              return;
+            }
+
+            const isProtectedScreen = ['invite', 'join', '(tabs)', 'breathing', 'timer', 'translate', 'cycle-breaker'].includes(currentSegment);
+            if (isProtectedScreen) {
+              router.replace('/welcome');
+            }
+          }
+        })();
+      }, 0);
     });
 
     return () => {

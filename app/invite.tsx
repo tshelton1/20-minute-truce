@@ -1,7 +1,7 @@
 /* app/invite.tsx */
 // @ts-nocheck: Bypassing Deno linter for mobile-specific React Native modules and polyfills
 import * as _React from 'react'; // FIXED: Unified namespace import clears duplicate identifiers
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -23,6 +23,10 @@ import { supabase } from '../src/lib/supabase.ts';
 
 const { width: _width } = Dimensions.get('window'); // FIXED: Prefixed with underscore to clear unused-var warning
 
+const INVITE_CODE_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+const INVITE_CODE_LENGTH = 6;
+const PENDING_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+
 export default function InviteScreen() {
   const router = useRouter();
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -30,6 +34,7 @@ export default function InviteScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSoloLoading, setIsSoloLoading] = useState(false);
   const [partnerJoined, setPartnerJoined] = useState(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -51,7 +56,14 @@ export default function InviteScreen() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
+    };
   }, [inviteCode]);
 
   const handleLogout = async () => {
@@ -60,15 +72,22 @@ export default function InviteScreen() {
   };
 
   const handlePartnerConnected = () => {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
     setPartnerJoined(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => { router.replace('/(tabs)'); }, 1500);
+    setTimeout(() => { router.replace('/breathing'); }, 1500);
   };
 
   const handleStartTruce = async () => {
     setIsSaving(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newCode = Array.from({ length: INVITE_CODE_LENGTH }, () =>
+      INVITE_CODE_CHARSET[Math.floor(Math.random() * INVITE_CODE_CHARSET.length)]
+    ).join('');
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -76,20 +95,34 @@ export default function InviteScreen() {
 
       const { data: existing } = await supabase
         .from('couples')
-        .select('pairing_token')
+        .select('pairing_token, created_at')
         .eq('partner_1_id', user.id)
         .is('partner_2_id', null)
         .single();
 
-      if (existing) {
+      const isPendingInviteFresh =
+        !!existing?.created_at &&
+        Date.now() - new Date(existing.created_at).getTime() < PENDING_INVITE_TTL_MS;
+
+      if (existing && isPendingInviteFresh) {
         setInviteCode(existing.pairing_token);
       } else {
+        if (existing) {
+          const { error: deleteError } = await supabase
+            .from('couples')
+            .delete()
+            .eq('partner_1_id', user.id)
+            .is('partner_2_id', null);
+
+          if (deleteError) throw deleteError;
+        }
+
         const { error } = await supabase
           .from('couples')
-          .insert([{ 
-            pairing_token: newCode, 
+          .insert([{
+            pairing_token: newCode,
             partner_1_id: user.id,
-            created_at: new Date().toISOString() 
+            created_at: new Date().toISOString(),
           }]);
         if (error) throw error;
         setInviteCode(newCode);
@@ -191,7 +224,14 @@ export default function InviteScreen() {
           <View style={styles.codeContainer}>
             <Text style={styles.codeHint}>SEND THIS TO YOUR PARTNER NOW:</Text>
             <TouchableOpacity onPress={copyToClipboard} style={styles.codeBox}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
+              <Text
+                style={styles.codeText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {inviteCode}
+              </Text>
               <View style={styles.copyBadge}>
                 <Ionicons name={copied ? "checkmark" : "copy"} size={16} color="white" />
                 <Text style={styles.copyBadgeText}>{copied ? "COPIED" : "COPY"}</Text>
@@ -234,8 +274,25 @@ const styles = StyleSheet.create({
   whiteSoloBtnText: { color: '#4ECDC4', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   codeContainer: { width: '100%', marginTop: 30, alignItems: 'center' },
   codeHint: { color: '#4ECDC4', fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 15 },
-  codeBox: { backgroundColor: '#1e293b', width: '100%', padding: 25, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(78, 205, 196, 0.3)', alignItems: 'center' },
-  codeText: { color: 'white', fontSize: 42, fontWeight: '900', letterSpacing: 8 },
+  codeBox: {
+    backgroundColor: '#1e293b',
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: 25,
+    paddingVertical: 25,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+    alignItems: 'center',
+  },
+  codeText: {
+    color: 'white',
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: 7,
+    textAlign: 'center',
+    width: '100%',
+  },
   copyBadge: { flexDirection: 'row', backgroundColor: '#334155', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 15, alignItems: 'center' },
   copyBadgeText: { color: 'white', fontSize: 10, fontWeight: '900', marginLeft: 5 },
   waitingIndicator: { flexDirection: 'row', marginTop: 25, alignItems: 'center' },
