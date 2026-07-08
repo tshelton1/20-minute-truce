@@ -80,8 +80,8 @@ export default function PremiumPaywall({ isVisible, onClose }: Props) {
       const configured = await RC.isConfigured();
       if (!configured) {
         const apiKey = Platform.OS === 'ios'
-          ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
-          : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+          ? process.env.EXPO_PUBLIC_RC_IOS_KEY
+          : process.env.EXPO_PUBLIC_RC_GOOGLE_KEY;
 
         if (!apiKey) {
           console.error("RevenueCat API Key missing");
