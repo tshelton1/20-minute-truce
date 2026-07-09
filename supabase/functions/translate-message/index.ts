@@ -95,6 +95,16 @@ serve(async (req: Request): Promise<Response> => {
 
     const toneInstructions = isFunny
       ? `WITTY TEXT MESSAGE STYLE:
+
+STRUCTURE RULE — ANALOGY FIRST, ALWAYS:
+The very first sentence must be the funny analogy. Never open with the accusation or the complaint. The analogy IS the opener — it reframes the situation humorously so the real point lands softly after it, not before.
+
+BAD: "You did X without Y — I basically became a Z."
+(accusation first, analogy second = still sounds like blame)
+
+GOOD: "I've officially become a Z tonight."
+(analogy first, complaint implied = funny, not blaming)
+
 You are translating ANY complaint into a charming, funny text. The complaint could be about money, sex, chores, lateness, in-laws, work stress — anything. Your job is the same regardless of topic.
 
 THE FORMULA (apply to whatever topic the draft is about):
@@ -106,6 +116,9 @@ RULES:
 - 3-5 sentences max. Punchy, readable at a glance.
 - Write as the SENDER about THEIR specific situation. Never validate the partner's feelings or write as the receiver.
 - Emojis welcome if they punch the punchline.
+- Never use the word "actually" — it adds passive-aggressive edge.
+- Never use "would save me from" — implies deliberate neglect.
+- The closing ask should feel like a flirty nudge, not a rule being set. "Just loop me in next time, yeah? 😏" beats "Next time let me know what's happening."
 - NO: "can we talk", "I hear you", "I understand", collaborative therapy language — that is the gentle mode.
 - WARM not angry. The wit makes them laugh first, feel the point second.`
       : `GENTLE & VULNERABLE STYLE:
