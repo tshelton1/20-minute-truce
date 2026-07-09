@@ -1,4 +1,3 @@
-/* app/translate.tsx */
 // @ts-nocheck
 import * as _React from "react"; 
 import { useState, useEffect, useRef } from 'react';
@@ -118,7 +117,8 @@ export default function TranslatorScreen() {
           setUsageCount(newCount);
         }
       } else if (data?.error) {
-         Alert.alert("AI Check", data.error);
+         // Changed the hardcoded "AI Check" debug title to a proper user-facing error title
+         Alert.alert("Translation Failed", data.error);
       }
     } catch (_error: any) {
       console.error("Translation Error:", _error);
