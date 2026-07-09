@@ -134,10 +134,13 @@ export default function PremiumPaywall({ isVisible, onClose }: Props) {
         onClose();
       }
     } catch (e: unknown) {
-      const error = e as PurchasesError;
-      if (!error.userCancelled) {
-        Alert.alert("Transaction Failed", error.message);
-      }
+      // TODO: revert before App Store submission
+      Alert.alert("Purchase Debug", JSON.stringify({
+        code: (e as any).code,
+        message: (e as any).message,
+        userCancelled: (e as any).userCancelled,
+        underlyingError: (e as any).underlyingErrorMessage,
+      }));
     } finally {
       setLoading(false);
     }
