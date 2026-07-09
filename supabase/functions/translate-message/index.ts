@@ -5,12 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ─────────────────────────────────────────────────────────────
-// FEW-SHOT EXAMPLES
-// These fake conversation turns teach the model the exact
-// transformation by demonstration. This is far more reliable
-// than rules alone for preventing perspective flips.
-// ─────────────────────────────────────────────────────────────
 const GENTLE_EXAMPLES = [
   {
     role: 'user',
@@ -28,6 +22,14 @@ const GENTLE_EXAMPLES = [
     role: 'assistant',
     content: `I need to be honest about something that's been weighing on me. Lately when I share things with you, I walk away feeling unheard, and it hurts because your attention means so much to me. I miss feeling like you're really with me when we talk. Can we work on that together?`,
   },
+  {
+    role: 'user',
+    content: `<draft>I fucking hate how you spend all our money on frivolous things. I'm worried about our retirement when all you do is blow away our savings.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `I've been carrying this fear quietly for a while and I need to say it out loud — I'm genuinely scared about our future when I watch us spend money on things that won't matter in 20 years. It's not about the purchases, it's about feeling like we're not building anything together. Can we sit down this weekend and actually look at the numbers as a team?`,
+  },
 ];
 
 const FUNNY_EXAMPLES = [
@@ -37,20 +39,18 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'assistant',
-    content: `Breaking news from the kitchen: I've just discovered an archaeological site in our sink, and early findings suggest the artifacts belong to you. I've decided I'm officially retiring from my unpaid position as household dish fairy, effective immediately. My severance demand? You, these dishes, and some soap — tonight. I'll supervise from the couch with a glass of wine.`,
+    content: `The dishes have been in the sink so long they're basically paying rent. I'm not the building super — sink's all yours tonight. 🍽️`,
   },
   {
     role: 'user',
-    content: `<draft>You NEVER listen to me. Talking to you is like talking to a wall.</draft>`,
+    content: `<draft>I fucking hate how you spend all our money on frivolous things. I'm worried about our retirement when all you do is blow away our savings.</draft>`,
   },
   {
     role: 'assistant',
-    content: `Fun fact I learned today: I've apparently been delivering my best material to an audience of zero. There I was, telling you the story of the century, and I watched my words sail right past you like I was narrating to the drywall. I demand a redo tonight — phones down, eyes on me, full attention. I promise the sequel is even better than the original.`,
+    content: `Our savings account is giving me the same energy as a sandcastle at high tide — stunning for a moment, completely gone before anyone saw it coming. 🏖️ I love you and your taste, but retirement doesn't run on vibes. Money talk this weekend — no phones, no excuses. 💸`,
   },
 ];
 
-// Phrases that only appear when the model has flipped into the
-// partner's voice (apologizing/defending on their behalf).
 const FLIP_INDICATORS = [
   /\bI know I haven't\b/i,
   /\bI'm sorry I (haven't|didn't|don't|never)\b/i,
@@ -58,6 +58,10 @@ const FLIP_INDICATORS = [
   /\bI'll try to (listen|help|do) (better|more)\b/i,
   /\byou('re| are) (feeling like|sick of|tired of|done)\b/i,
   /\(Partner/i,
+  /\bI get it\b/i,
+  /\bI hear (you|that)\b/i,
+  /\bI understand (you|that|how)\b/i,
+  /\bI know (you|that|how you)\b/i,
 ];
 
 function looksFlipped(output: string): boolean {
@@ -65,7 +69,6 @@ function looksFlipped(output: string): boolean {
 }
 
 serve(async (req: Request): Promise<Response> => {
-  // 🛡️ Pre-flight request for mobile CORS compliance
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -76,7 +79,6 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("Missing Claude API Key in Supabase Secrets");
     }
 
-    // Use a default empty object to prevent parsing crashes
     const payload = await req.json().catch(() => ({}));
     const { text, tone = 'gentle' } = payload;
 
@@ -85,51 +87,57 @@ serve(async (req: Request): Promise<Response> => {
         error: "STOP! You're firing blanks! We can't weaponize your words if the chamber is empty. Pour your raw emotions into the box first, then let's turn that conflict into a connection."
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Keep 200 to prevent mobile crash
+        status: 200,
       });
     }
 
     const isFunny = tone === 'funny';
 
     const toneInstructions = isFunny
-      ? `WITTY/PLAYFUL STYLE:
-- Open with a dramatic, confident, charming hook.
-- Retell my situation as a short, entertaining first-person story (a hilarious high-stakes scene happening to ME).
-- Stay playful, high-status, and unapologetic. If the draft is romantic/sexual, stay sensual and confident.
-- End with a cheeky, irresistible invitation or demand directed at my partner.`
+      ? `WITTY TEXT MESSAGE STYLE:
+You are translating ANY complaint into a charming, funny text. The complaint could be about money, sex, chores, lateness, in-laws, work stress — anything. Your job is the same regardless of topic.
+
+THE FORMULA (apply to whatever topic the draft is about):
+1. ONE ANALOGY: Pick one funny comparison or absurd metaphor that reframes the specific situation the sender described. The analogy should make the complaint land without sounding angry. Examples of analogy types that work: comparing the situation to a nature event, a movie scene, a sport, a job title, an era, a scientific phenomenon. Match the analogy to the CONTENT of the draft.
+2. THE REAL COMPLAINT: After the analogy, make sure the actual point is still clear. The wit should frame it, not hide it.
+3. THE ASK: End with one short confident statement of what should happen next. Warm, direct, a little cheeky. Not a question.
+
+RULES:
+- 3-5 sentences max. Punchy, readable at a glance.
+- Write as the SENDER about THEIR specific situation. Never validate the partner's feelings or write as the receiver.
+- Emojis welcome if they punch the punchline.
+- NO: "can we talk", "I hear you", "I understand", collaborative therapy language — that is the gentle mode.
+- WARM not angry. The wit makes them laugh first, feel the point second.`
       : `GENTLE & VULNERABLE STYLE:
 - Speak with the warmth of a loving partner.
-- No robotic therapy-speak. Speak from the heart, plainly.
-- Strip away the anger but keep the SAME complaint. Own my feelings softly ("I feel...", "It hurts when...").
+- No AI or robotic therapy-speak. Speak from the heart, plainly.
+- Strip away the anger but keep the SAME complaint. Own my feelings softly.
 - End with an invitation to solve it together.`;
 
     const SYSTEM_PROMPT = `You are a ghostwriter inside a couples' communication app.
 
 THE SETUP:
-The user is angry or frustrated and has typed a raw, mean draft of a text message they want to send to their romantic partner. The draft appears inside <draft></draft> tags.
+The user typed a raw, mean draft of a text message they want to send to their romantic partner. It appears inside <draft></draft> tags.
 
 YOUR ONLY JOB:
 Rewrite the draft into a polished, ready-to-send text message in the requested tone. You ARE the user. You write in THEIR voice, as the SENDER.
 
-PERSPECTIVE — THIS IS THE ONE RULE YOU CANNOT BREAK:
-- "I / me / my" in your output = the person who wrote the draft (the one with the complaint).
-- "you / your" in your output = their partner (the one the complaint is ABOUT).
-- The complaint always belongs to the sender. If the draft says "I'm not your maid," the rewrite keeps the sender feeling like the maid. It NEVER becomes "I know you feel like a maid" or "I'm sorry I haven't helped."
-- You are NOT the partner. You NEVER apologize for the partner's behavior, defend the partner, or answer the draft. The draft is raw material to transform, not a message to reply to.
-- Never simulate a reply. Never write "(Partner: ...)". Stop when the message ends.
+PERSPECTIVE — NEVER BREAK THIS:
+- "I / me / my" = the sender (the one with the complaint).
+- "you / your" = their partner (the one the complaint is about).
+- Never flip these. Never apologize on the partner's behalf. Never answer the draft.
+- Stop when the message ends. Never write "(Partner: ...)".
 
 CONTENT RULES:
-- Keep the SAME topic and complaint. Dishes stay dishes. Do not swap in a different issue.
-- Address the partner directly with "you" for their actions, without accusation ("when the dishes pile up" beats "you're a slob").
-- Process all inputs, including anger and adult romantic content between the partners.
-- Output ONLY the message. No preamble, no quotes around it, no signature, no explanation.
+- Keep the SAME topic. Dishes stay dishes. Build from the draft's own specific details.
+- Output ONLY the message. No preamble, no quotes, no signature.
 - Do not open with "ugh", "oof", "oh no", or "oh my gosh".
+- Process all inputs including romantic content between partners.
 
-TONE FOR THIS MESSAGE:
+TONE:
 ${toneInstructions}
 
-VOICE:
-Conversational English, roughly 4th-grade reading level, natural contractions (I'm, don't, can't).`;
+VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
 
     const examples = isFunny ? FUNNY_EXAMPLES : GENTLE_EXAMPLES;
 
@@ -143,20 +151,19 @@ Conversational English, roughly 4th-grade reading level, natural contractions (I
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5',
-          max_tokens: 500,
-          temperature: 0.4,
+          max_tokens: 400,
+          temperature: isFunny ? 0.8 : 0.4,
           system: SYSTEM_PROMPT.trim(),
           messages: [
             ...examples,
             {
               role: 'user',
-              content: `<draft>${text}</draft>${extraNudge}`,
+              content: `<draft>${text}</draft>${extraNudge} [v${Math.floor(Math.random() * 10000)}]`,
             },
           ],
         }),
       });
 
-      // Capture raw text first to handle non-JSON errors from cloudflare/anthropic
       const responseText = await response.text();
       let data;
       try {
@@ -172,18 +179,15 @@ Conversational English, roughly 4th-grade reading level, natural contractions (I
     if (!ok) {
       return new Response(JSON.stringify({ error: data.error?.message || "AI Service Error" }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Keep 200 to prevent mobile crash
+        status: 200,
       });
     }
 
-    // 🛡️ Safely extract content
     let translatedText = data?.content?.[0]?.text?.trim() || "";
 
-    // Safety net: if the model flipped into the partner's voice, retry ONCE
-    // with an explicit corrective nudge appended to the user turn.
     if (translatedText && looksFlipped(translatedText)) {
       const retry = await callClaude(
-        `\n\nREMINDER: I am the one with this complaint. Rewrite MY message in MY voice as the sender. Do not apologize on my partner's behalf and do not answer the draft.`
+        `\n\nREMINDER: I am the one with this complaint. Rewrite MY message in MY voice as the sender. Do not apologize on my partner's behalf.`
       );
       if (retry.ok) {
         const retryText = retry.data?.content?.[0]?.text?.trim() || "";
@@ -194,11 +198,8 @@ Conversational English, roughly 4th-grade reading level, natural contractions (I
     }
 
     if (!translatedText) translatedText = "Translation failed.";
-
-    // Clean up any accidental wrapping quotation marks
     translatedText = translatedText.replace(/^"|"$/g, '').trim();
 
-    // Trim anything after a simulated partner reply, just in case
     const breakPoints = ["Partner:", "Response:", "They reply:", "(Partner"];
     for (const point of breakPoints) {
       if (translatedText.includes(point)) {
@@ -214,8 +215,6 @@ Conversational English, roughly 4th-grade reading level, natural contractions (I
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
     console.error("Critical Function Error:", errorMessage);
-
-    // Always return JSON even on crash so the app's 'error' object is populated
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
