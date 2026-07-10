@@ -117,12 +117,11 @@ export default function TranslatorScreen() {
           setUsageCount(newCount);
         }
       } else if (data?.error) {
-         // Changed the hardcoded "AI Check" debug title to a proper user-facing error title
          Alert.alert("Translation Failed", data.error);
       }
     } catch (_error: any) {
       console.error("Translation Error:", _error);
-      Alert.alert("Diagnostics", `Claude says: ${_error.message || JSON.stringify(_error)}`);
+      Alert.alert("Translation Failed", "Something went wrong on our end. Please try again in a moment.");
     } finally {
       setLoading(false);
     }

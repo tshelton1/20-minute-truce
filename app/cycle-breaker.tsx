@@ -149,7 +149,7 @@ export default function CycleBreakerScreen() {
 
         if (fnError) {
           console.error("Edge Function Rejected Request:", fnError);
-          setInsight("Diagnostic Alert: The AI server rejected the request. This is usually due to API limits or a missing Claude key.");
+          setInsight("We couldn't generate your Pattern Report right now. Please try again in a few minutes.");
           Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
           setLoading(false);
           return;
@@ -222,7 +222,7 @@ export default function CycleBreakerScreen() {
       <View style={styles.cardHeader}>
         <MaterialCommunityIcons name="information-outline" size={20} color="#fbbf24" />
         <Text style={[styles.cardLabel, { color: '#fbbf24', letterSpacing: 1.5 }]}>
-          {insight.includes("Diagnostic") || insight.includes("unavailable") ? "SYSTEM STATUS" : "DATA COLLECTION"}
+          {insight.includes("unavailable") || insight.includes("couldn't") ? "NOTICE" : "DATA COLLECTION"}
         </Text>
       </View>
       <Text style={styles.cardBodyText}>{insight}</Text>
