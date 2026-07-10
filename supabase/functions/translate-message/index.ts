@@ -5,180 +5,155 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ─────────────────────────────────────────────────────────────
-// DRAFT ANALYZER
-// Extracts who did what and how the sender feels — client-side,
-// zero extra API calls. Returns an explicit context block that
-// gets injected into the user message so the model never has to
-// infer perspective from angry/profane text.
-// ─────────────────────────────────────────────────────────────
-function analyzeDraft(text: string): string {
-  const lower = text.toLowerCase();
-
-  // ── Who caused the problem? ──────────────────────────────
-  const partnerDidIt = [
-    'you spent', 'you blew', 'you lied', 'you never', 'you always',
-    'you forgot', 'you didn\'t', 'you don\'t', 'you came home late',
-    'you left', 'you ate', 'you keep', 'you make me', 'you treat',
-    'you have the', 'you are', 'you\'re', 'how you spend',
-    'how you act', 'how you treat', 'why do you', 'why are you',
-    'when you', 'you were late', 'you never listen',
-  ].some(s => lower.includes(s));
-
-  const senderDidIt = [
-    'i said sorry', 'i apologized', 'i already said',
-    'i know i was', 'it was my fault', 'my fault',
-    'i messed up', 'i screwed up', 'i came home late',
-    'i spent', 'i blew', 'i forgot to text',
-    'i didn\'t text', 'i was wrong',
-  ].some(s => lower.includes(s));
-
-  // ── What is the core topic? ──────────────────────────────
-  const topics: string[] = [];
-  if (/money|spend|spent|savings|rent|bill|budget|financ|afford/.test(lower)) topics.push('finances/spending');
-  if (/dishes|clean|mess|chores|house|laundry|cook/.test(lower)) topics.push('household chores');
-  if (/late|time|wait|dinner|home by/.test(lower)) topics.push('being late/no communication');
-  if (/listen|ignore|wall|talk|hear|attention|phone/.test(lower)) topics.push('not listening/being present');
-  if (/sex|intimat|touch|hug|affection|bedroom/.test(lower)) topics.push('intimacy/affection');
-  if (/lied|lie|honest|trust|truth|hiding|secret/.test(lower)) topics.push('honesty/trust');
-  if (/victim|crazy|overreact|dramatic|sensitive/.test(lower)) topics.push('feeling dismissed/invalidated');
-  const topic = topics.length > 0 ? topics.join(' and ') : 'relationship issue';
-
-  // ── What is the sender feeling? ──────────────────────────
-  const feelings: string[] = [];
-  if (/scared|afraid|fear|worried|panic|stress/.test(lower)) feelings.push('scared');
-  if (/tired|exhaust|done|sick of|can't anymore/.test(lower)) feelings.push('exhausted');
-  if (/alone|lonely|invisible|unheard|ignored/.test(lower)) feelings.push('alone/unheard');
-  if (/betray|hurt|pain|trust|lied/.test(lower)) feelings.push('hurt/betrayed');
-  if (/frustrat|angry|mad|hate|resent/.test(lower)) feelings.push('frustrated/angry');
-  const feeling = feelings.length > 0 ? feelings.join(' and ') : 'upset';
-
-  // ── Build the context block ──────────────────────────────
-  if (senderDidIt && !partnerDidIt) {
-    return `<context>
-SENDER ROLE: The sender made a mistake and is trying to apologize or de-escalate after doing something wrong.
-WHAT SENDER DID WRONG: ${topic}
-HOW SENDER FEELS: ${feeling}, remorseful
-RULE: Write as the sender owning their mistake. Do NOT blame the partner for anything.
-</context>`;
-  }
-
-  if (partnerDidIt) {
-    return `<context>
-SENDER ROLE: The sender is frustrated or hurt by something their PARTNER did.
-WHAT THE PARTNER DID: related to ${topic}
-HOW THE SENDER FEELS: ${feeling}
-RULE: The PARTNER is the one who did the thing. Write the SENDER'S feelings about the partner's behavior. Never flip this — do NOT make the sender apologize for what the partner did.
-</context>`;
-  }
-
-  // Neutral / unclear
-  return `<context>
-SENDER ROLE: The sender has a complaint or feeling to express.
-TOPIC: ${topic}
-HOW THE SENDER FEELS: ${feeling}
-RULE: Write from the sender's perspective expressing their own feelings.
-</context>`;
-}
-
-// ─────────────────────────────────────────────────────────────
-// FEW-SHOT EXAMPLES — 2 per tone, kept deliberately short.
-// Show the OUTPUT STYLE only. Perspective is handled by the
-// context block, not by matching these scenarios.
-// ─────────────────────────────────────────────────────────────
-const FUNNY_EXAMPLES = [
-  {
-    role: 'user' as const,
-    content: `<context>
-SENDER ROLE: The sender is frustrated by something their PARTNER did.
-WHAT THE PARTNER DID: related to household chores
-HOW THE SENDER FEELS: frustrated/angry
-RULE: Partner left the dishes. Write the sender's frustration. Do NOT flip.
-</context>
-<draft>You left your dishes in the sink AGAIN. I'm not your maid.</draft>`,
-  },
-  {
-    role: 'assistant' as const,
-    content: `The dishes and I have been waiting on you since Tuesday — they're starting to get attached. 🍽️ My maid services are officially retired, but my dishwashing-partner services are open tonight if you're interested. 😏`,
-  },
-  {
-    role: 'user' as const,
-    content: `<context>
-SENDER ROLE: The sender made a mistake and is apologizing.
-WHAT SENDER DID WRONG: being late/no communication
-HOW SENDER FEELS: remorseful, wants to reconnect
-RULE: The sender was late. Write them owning it. Do NOT blame the partner.
-</context>
-<draft>Why are you acting so crazy? I said I was sorry for coming home late and not texting you.</draft>`,
-  },
-  {
-    role: 'assistant' as const,
-    content: `I'm not gonna sit here and pretend I didn't earn this reaction — late AND no texts, a real hall-of-fame bad night on my part. 🏆 I'm genuinely sorry and I'm ready to make it up to you if you'll let me. 💙`,
-  },
-];
-
 const GENTLE_EXAMPLES = [
   {
-    role: 'user' as const,
-    content: `<context>
-SENDER ROLE: The sender is frustrated by something their PARTNER did.
-WHAT THE PARTNER DID: related to not listening/being present
-HOW THE SENDER FEELS: alone/unheard
-RULE: Write the sender's feelings about not being heard. Do NOT flip.
-</context>
-<draft>You NEVER listen to me. Talking to you is like talking to a wall.</draft>`,
+    role: 'user',
+    content: `<draft>I'm sick of being your maid. You never clean up after yourself and I'm done.</draft>`,
   },
   {
-    role: 'assistant' as const,
-    content: `I've been feeling really invisible lately when I try to share things with you — like what I'm saying isn't landing. It hurts because your attention matters so much to me. Can we be more present with each other when we talk?`,
+    role: 'assistant',
+    content: `Hey love, I'm running on empty tonight. I feel like I've been carrying most of the cleanup lately, and it's starting to make me feel more like a maid than a partner. I don't want to feel that way with you. Can we sit down and figure out a split that works for both of us?`,
   },
   {
-    role: 'user' as const,
-    content: `<context>
-SENDER ROLE: The sender is frustrated by something their PARTNER did.
-WHAT THE PARTNER DID: related to finances/spending
-HOW THE SENDER FEELS: scared, exhausted
-RULE: The PARTNER spent the money. Write the SENDER's fear. Never flip.
-</context>
-<draft>I fucking hate how you spend all our money on stupid things. We have rent due and you blew our savings.</draft>`,
+    role: 'user',
+    content: `<draft>You NEVER listen to me. Talking to you is like talking to a wall.</draft>`,
   },
   {
-    role: 'assistant' as const,
-    content: `I'm genuinely scared about our finances right now, and I need you to know that. When money goes to things we didn't plan for with rent coming up, I feel like I'm carrying this worry alone. Can we look at the numbers together this week so we're both on the same page?`,
+    role: 'assistant',
+    content: `I need to be honest about something that's been weighing on me. Lately when I share things with you, I walk away feeling unheard, and it hurts because your attention means so much to me. I miss feeling like you're really with me when we talk. Can we work on that together?`,
+  },
+  {
+    role: 'user',
+    content: `<draft>I saw the credit card bill. You lied to my face about how much you spent, period. You are completely untrustworthy and irresponsible.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `I looked at the bill and the number didn't match what you told me, and that hurt more than the spending itself. I need to be able to trust you with our money — when you hide things from me, I feel like we're on different teams. Can we talk tonight about what happened and how we get back to honesty?`,
   },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// SYSTEM PROMPT — intentionally short and focused.
-// All perspective work is done by the context block in the user
-// message. This prompt only handles TONE and FORMAT.
-// ─────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT_WITTY = `You are a ghostwriter in a couples' communication app. Your job: rewrite mean drafts into charming, funny texts that de-escalate conflict.
+const FUNNY_EXAMPLES = [
+  {
+    role: 'user',
+    content: `<draft>You left your dishes in the sink AGAIN. I'm not your maid.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `The dishes have been in the sink so long I'm pretty sure they are filing for squatter's rights. 🍽️ I'm feeling a little overwhelmed with the house stuff lately and could really use my teammate back. Can we tackle the kitchen together tonight?`,
+  },
+  {
+    role: 'user',
+    content: `<draft>You blew half our rent on stupid garbage again. You have the financial maturity of a toddler. I'm sick of carrying your weight.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `Watching our account balance drop like a roller coaster is giving me secondhand motion sickness. 🎢 I love you, but carrying the financial worry alone is starting to weigh on me. Can we sit down tonight and get back on the same team with our budget?`,
+  },
+  {
+    role: 'user',
+    content: `<draft>I saw the credit card bill. You lied to my face about how much you spent. You're completely untrustworthy.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `The credit card bill and the story you told me showed up wearing two completely different outfits today. 💳 Honestly, the surprise hurt more than the numbers because I just want us to be a united front. Can we talk about what happened so we can get back to trusting each other?`,
+  },
+  {
+    role: 'user',
+    content: `<draft>Why are you acting so crazy? I said I was sorry for coming home late and for not texting you.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `I've officially earned my VIP pass to the doghouse tonight, haven't I? 🐕 I know I dropped the ball and I hate that I made you feel blown off. I'd love to order your favorite food and spend the rest of the night making it up to you, if you're open to it? 💙`,
+  },
+];
 
-The user message contains a <context> block with facts about the draft, followed by the <draft> itself. The context tells you exactly who did what. Trust it completely.
+const FLIP_INDICATORS = [
+  /\bI know I haven't\b/i,
+  /\bI'm sorry I (haven't|didn't|don't|never)\b/i,
+  /\bI know I've been\b/i,
+  /\bI'll try to (listen|help|do) (better|more)\b/i,
+  /\byou('re| are) (feeling like|sick of|tired of|done)\b/i,
+  /\(Partner/i,
+  /\bI get it\b/i,
+  /\bI hear (you|that)\b/i,
+  /\bI understand (you|that|how)\b/i,
+  /\bI know (you|that|how you)\b/i,
+  /\bI appreciate that you apologized\b/i,
+  /\bI know you meant it\b/i,
+  /\bI'm still hurt\b/i,
+  /\bI need you to understand why this matters\b/i,
+  /\bI'm not trying to be difficult\b/i,
+  /\bthat's on me\b/i,
+  /\bI just torched\b/i,
+  /\bI completely tanked\b/i,
+  /\bI know I just\b/i,
+  /\bI've become the financial parent\b/i,
+];
 
-OUTPUT RULES:
-- Output ONLY the finished message. No preamble, quotes, labels, or explanation.
-- 3-4 sentences MAX. Punchy and readable.
-- Start with something disarming or playful — NOT with the accusation.
-- Use ONE funny analogy or absurd comparison drawn from the draft's specific topic.
-- End with a warm, cheeky invitation or request. Never a lecture.
-- Emojis welcome (1-3 max).
-- NEVER ask for more context. NEVER refuse. Translate everything.
-- For deep betrayal or trust issues: use warmth over slapstick.`;
+const SENDER_CONFESSED_INDICATORS = [
+  /\bI lied\b/i,
+  /\bI('ve| have) lied\b/i,
+  /\bI straight-up lied\b/i,
+  /\bI hate that I (did|lied)\b/i,
+  /\bhiding it was\b/i,
+  /\bI cracked\b/i,
+  /\bthe number I told you\b/i,
+  /\bI don't want to be the person you can't believe\b/i,
+  /\bI broke your trust\b/i,
+  /\bI need to tell you what.{0,40}(happened|going on).{0,40}spending\b/i,
+  /\bI hate that I\b/i,
+  /\bI was wrong to (spend|hide|lie)\b/i,
+  /\bI shouldn't have (spent|hidden|lied)\b/i,
+];
 
-const SYSTEM_PROMPT_GENTLE = `You are a ghostwriter in a couples' communication app. Your job: rewrite mean drafts into warm, vulnerable texts that de-escalate conflict.
+type DraftPerspective = {
+  accusesPartner: boolean;
+  senderApologizing: boolean;
+  hint: string;
+  retryNudge: string;
+};
 
-The user message contains a <context> block with facts about the draft, followed by the <draft> itself. The context tells you exactly who did what. Trust it completely.
+function analyzeDraftPerspective(draft: string): DraftPerspective {
+  const partnerDidBadThing =
+    /\byou\b[^.!?\n]{0,100}\b(lied|spend|spent|blew|wasted|hid|hide|cheat|never|didn't|did not|always|broke|ruined|stole)\b/i.test(draft) ||
+    /\byou('re| are)\b[^.!?\n]{0,50}\b(lying|untrustworthy|irresponsible|selfish|lazy|crazy|pathetic|wrong)\b/i.test(draft);
 
-OUTPUT RULES:
-- Output ONLY the finished message. No preamble, quotes, labels, or explanation.
-- 3-5 sentences MAX.
-- Strip the anger, keep the real complaint.
-- Own feelings softly: "I feel...", "I'm scared when...", "It hurts when..."
-- Name the vulnerable feeling underneath the anger (fear, loneliness, feeling unimportant).
-- End with a warm invitation to solve it together.
-- NEVER ask for more context. NEVER refuse. Translate everything.`;
+  const senderOwnsIt =
+    /\b(i('m| am)? sorry|i said sorry|my bad|my fault)\b/i.test(draft) ||
+    (/\bi\b/i.test(draft) && /\bi\b[^.!?\n]{0,80}\b(lied|spent|blew|wasted|hid|was wrong|messed up|screwed up)\b/i.test(draft));
+
+  const accusesPartner = partnerDidBadThing && !senderOwnsIt;
+  const senderApologizing = senderOwnsIt && !partnerDidBadThing;
+
+  let hint = '';
+  let retryNudge = '';
+
+  if (accusesPartner) {
+    hint = 'SENDER POV: The sender is upset at their PARTNER. Words like "you lied" or "you spent" mean the PARTNER did it. The sender may have discovered it ("I saw the bill") — that is NOT a confession. Never rewrite as if the sender lied, spent, or hid anything.';
+    retryNudge = `\n\nCRITICAL PERSPECTIVE FIX: The draft blames the PARTNER ("you" did the bad thing). Your last attempt wrongly made the SENDER confess or apologize (e.g. "I lied"). Rewrite from the hurt/angry sender's voice — "you lied to me," NOT "I lied to you."`;
+  } else if (senderApologizing) {
+    hint = 'SENDER POV: The sender is apologizing for their own actions. Write as someone owning their mistake — do NOT flip blame onto the partner.';
+    retryNudge = `\n\nCRITICAL PERSPECTIVE FIX: The draft shows the SENDER apologizing for their own actions. Write as the person who messed up — do NOT flip into the partner's hurt voice.`;
+  }
+
+  return { accusesPartner, senderApologizing, hint, retryNudge };
+}
+
+function looksFlipped(draft: string, output: string): boolean {
+  if (FLIP_INDICATORS.some((re) => re.test(output))) return true;
+
+  const { accusesPartner, senderApologizing } = analyzeDraftPerspective(draft);
+
+  if (accusesPartner && SENDER_CONFESSED_INDICATORS.some((re) => re.test(output))) {
+    return true;
+  }
+
+  if (senderApologizing && /\byou('re| are) (hurt|upset|angry)\b/i.test(output)) {
+    return true;
+  }
+
+  return false;
+}
 
 serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
@@ -196,7 +171,7 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!text || text.trim().length === 0) {
       return new Response(JSON.stringify({
-        error: "Pour your raw emotions into the box first, then let's turn that conflict into a connection."
+        error: "STOP! You're firing blanks! We can't weaponize your words if the chamber is empty. Pour your raw emotions into the box first, then let's turn that conflict into a connection."
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -205,46 +180,96 @@ serve(async (req: Request): Promise<Response> => {
 
     const isFunny = tone === 'funny';
 
-    // Analyze the draft client-side and build the context block
-    const contextBlock = analyzeDraft(text);
+    const toneInstructions = isFunny
+      ? `WITTY & WARM TONE INSTRUCTIONS:
+      
+Your goal is to de-escalate tension through a disarming analogy, then immediately pivot to warm connection. Follow this exact 3-step formula every time:
 
-    // Compose the user message: context first, then the draft
-    // Random seed ensures variety even on identical inputs
-    const userMessage = `${contextBlock}
-<draft>${text}</draft>
-[v${Math.floor(Math.random() * 100000)}]`;
+1. THE DIFFUSER (The Analogy): Start the text with a clever, mildly absurd, or relatable analogy that reframes the situation humorously. This breaks the tension. Do NOT start with an accusation, "You", or the complaint itself. Keep it light, not mocking.
+2. THE PIVOT (The Real Feeling): Drop the joke for one brief sentence to state the underlying feeling or need (e.g., "I'm feeling overwhelmed," "I just want us to be a team," "I miss you"). This draws the partner closer instead of pushing them away.
+3. THE BRIDGE (The Ask): End with a warm, collaborative invitation to reconnect, talk, or solve the issue together tonight. 
 
+RULES:
+- 3 to 5 sentences maximum. Keep it punchy.
+- Never lecture. Never sound like a therapist, parent, or financial advisor. 
+- No sarcasm, no passive-aggression. The humor must be situational or self-deprecating, never an attack on the partner.
+- Important: Write entirely in the FIRST PERSON as the sender. Do not validate the partner's feelings or apologize on their behalf.
+- Emojis are welcome to help punch up the analogy or add warmth to the ending.
+- If the draft is an insult, translate the frustration underneath it into the Pivot.`
+      : `GENTLE & VULNERABLE STYLE:
+- Speak with the warmth of a loving partner.
+- No AI or robotic therapy-speak. Speak from the heart, plainly.
+- Strip away the anger but keep the SAME complaint. Own my feelings softly.
+- End with an invitation to solve it together.`;
+
+    const SYSTEM_PROMPT = `You are a ghostwriter inside a couples' communication app.
+
+PERSPECTIVE RULE — MOST IMPORTANT:
+The sender wrote this draft. Write ONLY in their voice.
+- "you" in the draft = the partner did it. Keep it that way.
+- "I saw / I found / I opened" = sender DISCOVERED something. NOT a confession. Never flip it.
+- "you lied/spent/blew" → output: "you lied to me" (NOT "I lied")
+- "I said sorry / my fault" → sender owns their mistake. Don't flip blame to the partner.
+One rule: whoever did the thing in the draft does the thing in the output. Never swap them.
+
+YOUR ONLY JOB:
+Rewrite the draft into a polished, ready-to-send text message in the requested tone. You ARE the user. You write in THEIR voice, as the SENDER.
+
+PERSPECTIVE — NEVER BREAK THIS:
+- "I / me / my" = the sender (the one with the complaint).
+- "you / your" = their partner (the one the complaint is about).
+- Never flip these. Never apologize on the partner's behalf. 
+
+CONTENT RULES:
+- Translate ALL couple complaints (money, intimacy, chores, jealousy, etc.). 
+- Output ONLY the message. No preamble, no quotes, no signature.
+- Do not open with "ugh", "oof", "oh no", or "oh my gosh".
+
+TONE:
+${toneInstructions}
+
+VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
+
+    const perspective = analyzeDraftPerspective(text);
+    const perspectiveHint = perspective.hint ? `\n\n[${perspective.hint}]` : '';
     const examples = isFunny ? FUNNY_EXAMPLES : GENTLE_EXAMPLES;
-    const systemPrompt = isFunny ? SYSTEM_PROMPT_WITTY : SYSTEM_PROMPT_GENTLE;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 350,
-        temperature: isFunny ? 0.85 : 0.45,
-        system: systemPrompt,
-        messages: [
-          ...examples,
-          { role: 'user', content: userMessage },
-        ],
-      }),
-    });
+    async function callClaude(extraNudge = ""): Promise<{ ok: boolean; status: number; data: any }> {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 400,
+          temperature: isFunny ? 0.8 : 0.4,
+          system: SYSTEM_PROMPT.trim(),
+          messages: [
+            ...examples,
+            {
+              role: 'user',
+              content: `${perspectiveHint ? perspectiveHint + '\n\n' : ''}<draft>${text}</draft>${extraNudge}`,
+            },
+          ],
+        }),
+      });
 
-    const responseText = await response.text();
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (_e) {
-      throw new Error("AI provider sent an invalid response format.");
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (_e) {
+        throw new Error("AI provider sent an invalid response format.");
+      }
+      return { ok: response.ok, status: response.status, data };
     }
 
-    if (!response.ok) {
+    let { ok, data } = await callClaude();
+
+    if (!ok) {
       return new Response(JSON.stringify({ error: data.error?.message || "AI Service Error" }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -253,10 +278,21 @@ serve(async (req: Request): Promise<Response> => {
 
     let translatedText = data?.content?.[0]?.text?.trim() || "";
 
+    if (translatedText && looksFlipped(text, translatedText)) {
+      const retryNudge = perspective.retryNudge ||
+        `\n\nREMINDER: I am the one with this complaint. Rewrite MY message in MY voice as the sender. Do not apologize on my partner's behalf.`;
+      const retry = await callClaude(retryNudge);
+      if (retry.ok) {
+        const retryText = retry.data?.content?.[0]?.text?.trim() || "";
+        if (retryText && !looksFlipped(text, retryText)) {
+          translatedText = retryText;
+        }
+      }
+    }
+
     if (!translatedText) translatedText = "Translation failed.";
     translatedText = translatedText.replace(/^"|"$/g, '').trim();
 
-    // Remove any simulated partner replies
     const breakPoints = ["Partner:", "Response:", "They reply:", "(Partner"];
     for (const point of breakPoints) {
       if (translatedText.includes(point)) {
