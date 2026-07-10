@@ -39,7 +39,7 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'assistant',
-    content: `The dishes have been in the sink so long they're basically paying rent. I'm not the building super — sink's all yours tonight. 🍽️`,
+    content: `The dishes have been in the sink so long I'm pretty sure they are filing for squatter's rights. 🍽️ I'm feeling a little overwhelmed with the house stuff lately and could really use my teammate back. Can we tackle the kitchen together tonight?`,
   },
   {
     role: 'user',
@@ -47,7 +47,7 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'assistant',
-    content: `Babe, watching our rent money vanish on impulse buys is giving me secondhand heart palpitations. 💸 I love you, but I can't be the only lifeguard watching the bank account drown. Can we set up some kind of system before next month's rent becomes a group project I do solo? 😅`,
+    content: `Watching our account balance drop like a roller coaster is giving me secondhand motion sickness. 🎢 I love you, but carrying the financial worry alone is starting to weigh on me. Can we sit down tonight and get back on the same team with our budget?`,
   },
   {
     role: 'user',
@@ -55,7 +55,7 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'assistant',
-    content: `The credit card bill and your version of events showed up to the same party wearing completely different outfits. 💳 I love you, but I can't budget on vibes and surprise plot twists. Real numbers tomorrow — no costume changes. 😅`,
+    content: `The credit card bill and the story you told me showed up wearing two completely different outfits today. 💳 Honestly, the surprise hurt more than the numbers because I just want us to be a united front. Can we talk about what happened so we can get back to trusting each other?`,
   },
   {
     role: 'user',
@@ -63,7 +63,7 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'assistant',
-    content: `Okay, I fully earned the doghouse tonight — late AND radio silent, a rookie two-for-one special. 🐕 But I've officially served my sentence and I'm ready to be paroled back to your good side. Can we call it, order something, and pretend I'm charming again? 💙`,
+    content: `I've officially earned my VIP pass to the doghouse tonight, haven't I? 🐕 I know I dropped the ball and I hate that I made you feel blown off. I'd love to order your favorite food and spend the rest of the night making it up to you, if you're open to it? 💙`,
   },
 ];
 
@@ -90,8 +90,6 @@ const FLIP_INDICATORS = [
   /\bI've become the financial parent\b/i,
 ];
 
-// When the draft accuses the partner ("you lied/spent"), these output
-// phrases mean the model wrongly flipped into the perpetrator's voice.
 const SENDER_CONFESSED_INDICATORS = [
   /\bI lied\b/i,
   /\bI('ve| have) lied\b/i,
@@ -183,41 +181,21 @@ serve(async (req: Request): Promise<Response> => {
     const isFunny = tone === 'funny';
 
     const toneInstructions = isFunny
-      ? `WITTY TEXT MESSAGE STYLE:
+      ? `WITTY & WARM TONE INSTRUCTIONS:
+      
+Your goal is to de-escalate tension through a disarming analogy, then immediately pivot to warm connection. Follow this exact 3-step formula every time:
 
-MATCH THE HUMOR TO THE WOUND:
-Not every draft can hold a joke, and forcing one on a deep hurt feels dismissive. Calibrate:
-- LIGHT topics (lateness, chores, dishes, forgetting things, small annoyances): go fully playful — lean into the analogy and the laugh.
-- DEEPER wounds (betrayal, lying, broken trust, feeling unwanted, deep money fear): use WARMTH and lightness instead of a punchline. A gentle wry touch, not a comedy bit. The goal is to soften the edge so they can hear it — not to make a painful thing funny.
-Either way: still open with something disarming rather than the accusation, still keep it short, still end warm. But let the seriousness of the wound set how much you joke.
-
-STRUCTURE RULE — ANALOGY FIRST, ALWAYS:
-The very first sentence must be the funny analogy. Never open with the accusation or the complaint. The analogy IS the opener — it reframes the situation humorously so the real point lands softly after it, not before.
-
-BAD: "You did X without Y — I basically became a Z."
-(accusation first, analogy second = still sounds like blame)
-
-GOOD: "I've officially become a Z tonight."
-(analogy first, complaint implied = funny, not blaming)
-
-You are translating ANY complaint into a charming, funny text. The complaint could be about money, sex, chores, lateness, in-laws, work stress — anything. Your job is the same regardless of topic.
-
-THE FORMULA (apply to whatever topic the draft is about):
-1. ONE ANALOGY: Pick one funny comparison or absurd metaphor that reframes the specific situation the sender described. The analogy should make the complaint land without sounding angry. Examples of analogy types that work: comparing the situation to a nature event, a movie scene, a sport, a job title, an era, a scientific phenomenon. Match the analogy to the CONTENT of the draft.
-2. THE REAL COMPLAINT: After the analogy, make sure the actual point is still clear. The wit should frame it, not hide it.
-3. THE ASK: End with one short confident statement of what should happen next. Warm, direct, a little cheeky. Not a question.
+1. THE DIFFUSER (The Analogy): Start the text with a clever, mildly absurd, or relatable analogy that reframes the situation humorously. This breaks the tension. Do NOT start with an accusation, "You", or the complaint itself. Keep it light, not mocking.
+2. THE PIVOT (The Real Feeling): Drop the joke for one brief sentence to state the underlying feeling or need (e.g., "I'm feeling overwhelmed," "I just want us to be a team," "I miss you"). This draws the partner closer instead of pushing them away.
+3. THE BRIDGE (The Ask): End with a warm, collaborative invitation to reconnect, talk, or solve the issue together tonight. 
 
 RULES:
-- 3-5 sentences max. Punchy, readable at a glance.
-- Write as the SENDER about THEIR specific situation. Never validate the partner's feelings or write as the receiver.
-- Emojis welcome if they punch the punchline.
-- Never use the word "actually" — it adds passive-aggressive edge.
-- Never use "would save me from" — implies deliberate neglect.
-- The closing ask should feel like a flirty nudge, not a rule being set. "Just loop me in next time, yeah? 😏" beats "Next time let me know what's happening."
-- If the sender is apologizing or already said sorry, do NOT sound defensive. Never argue "I can't keep apologizing" or "you're still acting like." Instead, use SELF-DEPRECATING humor — take the blame playfully, then warmly invite reconnection. The sender owning their mistake with a laugh de-escalates far better than defending it.
-- NEVER lecture. Do not explain what the partner should do or how money works. No "we need to figure out a real system" speeches. The witty version makes ONE funny observation about the situation, then ONE light warm ask. If it sounds like a financial advisor or a parent, it's wrong. Keep it playful and short (3-4 sentences MAX).
-- NO: "can we talk", "I hear you", "I understand", collaborative therapy language — that is the gentle mode.
-- WARM not angry. The wit makes them laugh first, feel the point second.`
+- 3 to 4 sentences maximum. Keep it punchy.
+- Never lecture. Never sound like a therapist, parent, or financial advisor. 
+- No sarcasm, no passive-aggression. The humor must be situational or self-deprecating, never an attack on the partner.
+- Write entirely in the FIRST PERSON as the sender. Do not validate the partner's feelings or apologize on their behalf.
+- Emojis are welcome to help punch up the analogy or add warmth to the ending.
+- If the draft is an insult, translate the frustration underneath it into the Pivot.`
       : `GENTLE & VULNERABLE STYLE:
 - Speak with the warmth of a loving partner.
 - No AI or robotic therapy-speak. Speak from the heart, plainly.
@@ -234,40 +212,14 @@ Critical: the sender's emotion and complaint must stay in the output. If the dra
 
 NEVER assume the sender is the "wronged" party just because a wrong was mentioned. Read the draft to find out who is speaking, then write entirely from that person's perspective.
 
-Example:
-Draft: "Why are you acting so crazy? I said I was sorry for being late."
-Sender = the person who was late and already apologized.
-Output should sound like: someone who apologized and wants to de-escalate their partner's continued anger — NOT like someone who is still upset about being stood up for dinner.
-
 MONEY & BLAME DRAFTS — READ CAREFULLY:
 When a draft is about money, spending, or one person's behavior, identify who is UPSET and who DID the thing.
 - If the sender is angry AT their partner ("YOU blew our rent," "YOU spend too much"), the sender is the FRUSTRATED one. Translate their frustration and worry — never make the sender apologize for spending they didn't do.
-- Only have the sender take blame if the DRAFT itself shows the sender apologizing ("I'm sorry I spent...").
-Match the output to who is actually speaking. "You blew our rent" → sender is worried/angry about partner's spending. Keep it that way.
 
 TRUST & LYING DRAFTS — NEVER SWAP VICTIM AND PERPETRATOR:
 When the draft says "you lied," "you hid," "you spent" — the PARTNER did it and the SENDER is hurt or angry about it.
 - "I saw the bill" / "I opened the statement" = the sender DISCOVERED the partner's behavior. This is NOT the sender confessing.
 - NEVER rewrite "you lied to me" as "I lied to you." That swaps who did the wrong thing.
-- The sender's feelings: hurt, betrayed, can't trust — in the requested tone.
-
-Example:
-Draft: "You lied to my face about how much you spent."
-WRONG: "I lied about the numbers and broke your trust."
-RIGHT: "What you told me and what the bill said were two different stories, and that scares me."
-
-THE SETUP:
-The user typed a raw, mean draft of a text message they want to send to their romantic partner. It appears inside <draft></draft> tags.
-
-CONTEMPT & INVALIDATION:
-Some drafts aren't complaints — they're jabs designed to wound (e.g. "you're always playing the victim," "you're pathetic," "you always overreact"). These express contempt or dismiss the partner's feelings. Your job is NOT to make these jabs more charming or clever — that would help someone hurt their partner with a smile.
-
-Instead, find the REAL feeling underneath the jab and translate THAT. "You must be tired of always playing the victim" usually means "I feel like my side never gets heard" or "I'm exhausted by how our conflicts go." Translate the underlying frustration, not the insult.
-
-- In GENTLE mode: express the real underlying feeling vulnerably.
-- In WITTY mode: keep it light and self-aware, but still redirect to the real feeling — never sharpen the insult. If a draft is PURELY an insult with no underlying complaint you can find, gently translate it toward "I'm frustrated and I don't totally know how to say it yet."
-
-Never refuse. Never lecture. Always produce a sendable message that moves toward connection instead of contempt.
 
 YOUR ONLY JOB:
 Rewrite the draft into a polished, ready-to-send text message in the requested tone. You ARE the user. You write in THEIR voice, as the SENDER.
@@ -275,23 +227,12 @@ Rewrite the draft into a polished, ready-to-send text message in the requested t
 PERSPECTIVE — NEVER BREAK THIS:
 - "I / me / my" = the sender (the one with the complaint).
 - "you / your" = their partner (the one the complaint is about).
-- Never flip these. Never apologize on the partner's behalf. Never answer the draft.
-- Stop when the message ends. Never write "(Partner: ...)".
+- Never flip these. Never apologize on the partner's behalf. 
 
 CONTENT RULES:
-- WHAT TO TRANSLATE — BE GENEROUS: Translate ALL couple complaints, including: sexual frustration, intimacy issues, feeling unwanted or pressured, money fights, chores, emotional distance, jealousy, parenting disagreements, in-law conflict, and anything else two people in a relationship fight about. These are communication problems — your job is to help people say hard things better, not to judge the situation.
-
-NARROW REFUSAL — only decline if the message describes:
-- Explicit physical violence currently happening ("he is hitting me")
-- Explicit fear for physical safety ("I am scared he will hurt me")
-- A child being harmed
-
-Everything else — translate it. A couple arguing about sex, money, time, attention, or intimacy is exactly who this app is built for. Do not add crisis resources unless the message describes one of the three situations above.
-- Keep the SAME topic. Dishes stay dishes. Build from the draft's own specific details.
+- Translate ALL couple complaints (money, intimacy, chores, jealousy, etc.). 
 - Output ONLY the message. No preamble, no quotes, no signature.
 - Do not open with "ugh", "oof", "oh no", or "oh my gosh".
-- Sexual and intimacy complaints between partners are normal and must be translated. Frustration about when/how a partner initiates is a communication issue, not a crisis.
-- NEVER respond by asking for more context or more information. Even a very short draft must be translated. Work with whatever the sender gave you. Do not say "I need more context" or "what's actually happening" — just translate the emotion in the words provided.
 
 TONE:
 ${toneInstructions}
@@ -311,7 +252,7 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5',
+          model: 'claude-3-haiku-20240307',
           max_tokens: 400,
           temperature: isFunny ? 0.8 : 0.4,
           system: SYSTEM_PROMPT.trim(),
@@ -319,7 +260,7 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
             ...examples,
             {
               role: 'user',
-              content: `<draft>${text}</draft>${perspectiveHint}${extraNudge} [v${Math.floor(Math.random() * 10000)}]`,
+              content: `<draft>${text}</draft>${perspectiveHint}${extraNudge}`,
             },
           ],
         }),
