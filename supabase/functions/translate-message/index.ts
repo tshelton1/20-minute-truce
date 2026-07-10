@@ -252,7 +252,7 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
+          model: 'claude-haiku-4-5',
           max_tokens: 400,
           temperature: isFunny ? 0.8 : 0.4,
           system: SYSTEM_PROMPT.trim(),
