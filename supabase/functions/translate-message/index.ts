@@ -185,6 +185,12 @@ serve(async (req: Request): Promise<Response> => {
     const toneInstructions = isFunny
       ? `WITTY TEXT MESSAGE STYLE:
 
+MATCH THE HUMOR TO THE WOUND:
+Not every draft can hold a joke, and forcing one on a deep hurt feels dismissive. Calibrate:
+- LIGHT topics (lateness, chores, dishes, forgetting things, small annoyances): go fully playful — lean into the analogy and the laugh.
+- DEEPER wounds (betrayal, lying, broken trust, feeling unwanted, deep money fear): use WARMTH and lightness instead of a punchline. A gentle wry touch, not a comedy bit. The goal is to soften the edge so they can hear it — not to make a painful thing funny.
+Either way: still open with something disarming rather than the accusation, still keep it short, still end warm. But let the seriousness of the wound set how much you joke.
+
 STRUCTURE RULE — ANALOGY FIRST, ALWAYS:
 The very first sentence must be the funny analogy. Never open with the accusation or the complaint. The analogy IS the opener — it reframes the situation humorously so the real point lands softly after it, not before.
 
