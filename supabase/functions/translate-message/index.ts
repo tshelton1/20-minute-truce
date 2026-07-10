@@ -62,6 +62,11 @@ const FLIP_INDICATORS = [
   /\bI hear (you|that)\b/i,
   /\bI understand (you|that|how)\b/i,
   /\bI know (you|that|how you)\b/i,
+  /\bI appreciate that you apologized\b/i,
+  /\bI know you meant it\b/i,
+  /\bI'm still hurt\b/i,
+  /\bI need you to understand why this matters\b/i,
+  /\bI'm not trying to be difficult\b/i,
 ];
 
 function looksFlipped(output: string): boolean {
@@ -128,6 +133,19 @@ RULES:
 - End with an invitation to solve it together.`;
 
     const SYSTEM_PROMPT = `You are a ghostwriter inside a couples' communication app.
+
+WHO IS THE SENDER — READ THIS FIRST:
+Before writing anything, identify who is speaking in the draft.
+The sender is the person who WROTE the draft — they are the one feeling frustrated and wanting to express it.
+
+Critical: the sender's emotion and complaint must stay in the output. If the draft says "Why are you acting crazy? I said sorry," the sender is the one who apologized and is now frustrated their partner is still upset. The output speaks FOR that person — not for the partner who is upset.
+
+NEVER assume the sender is the "wronged" party just because a wrong was mentioned. Read the draft to find out who is speaking, then write entirely from that person's perspective.
+
+Example:
+Draft: "Why are you acting so crazy? I said I was sorry for being late."
+Sender = the person who was late and already apologized.
+Output should sound like: someone who apologized and wants to de-escalate their partner's continued anger — NOT like someone who is still upset about being stood up for dinner.
 
 THE SETUP:
 The user typed a raw, mean draft of a text message they want to send to their romantic partner. It appears inside <draft></draft> tags.
