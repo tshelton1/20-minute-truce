@@ -23,7 +23,7 @@ export const analyzeRelationshipPatterns = async (userId: string) => {
     return "I'm still gathering data. Once we have at least three sessions logged, I can start identifying our shared patterns.";
   }
 
-  // 2. Format the logs into a readable string for Claude
+  // 2. Format the logs into a readable string for Claude-haiku-4-5
   // FIXED: Explicitly typed 'log' to resolve binding element implicit-any
   const formattedLogs = (logs as MediatorLog[]).map((log: MediatorLog, index: number) => (
     `Log ${index + 1}:
@@ -36,7 +36,7 @@ export const analyzeRelationshipPatterns = async (userId: string) => {
   
   const fullPrompt = `${systemPrompt}\n\nHere are the logs:\n${formattedLogs}`;
 
-  // 4. Call your API (Claude-3-Haiku)
+  // 4. Call your API (Claude-4.5-Haiku)
   // [Insert your existing API call logic here using fullPrompt]
   
   return fullPrompt; // Return this for testing or pass to your AI handler
