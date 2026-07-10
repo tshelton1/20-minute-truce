@@ -49,6 +49,14 @@ const FUNNY_EXAMPLES = [
     role: 'assistant',
     content: `Our savings account is giving me the same energy as a sandcastle at high tide — stunning for a moment, completely gone before anyone saw it coming. 🏖️ I love you and your taste, but retirement doesn't run on vibes. Money talk this weekend — no phones, no excuses. 💸`,
   },
+  {
+    role: 'user',
+    content: `<draft>Why are you acting so crazy? I said I was sorry for coming home late and for not texting you.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `Okay, I fully earned the doghouse tonight — late AND radio silent, a rookie two-for-one special. 🐕 But I've officially served my sentence and I'm ready to be paroled back to your good side. Can we call it, order something, and pretend I'm charming again? 💙`,
+  },
 ];
 
 const FLIP_INDICATORS = [
@@ -124,6 +132,7 @@ RULES:
 - Never use the word "actually" — it adds passive-aggressive edge.
 - Never use "would save me from" — implies deliberate neglect.
 - The closing ask should feel like a flirty nudge, not a rule being set. "Just loop me in next time, yeah? 😏" beats "Next time let me know what's happening."
+- If the sender is apologizing or already said sorry, do NOT sound defensive. Never argue "I can't keep apologizing" or "you're still acting like." Instead, use SELF-DEPRECATING humor — take the blame playfully, then warmly invite reconnection. The sender owning their mistake with a laugh de-escalates far better than defending it.
 - NO: "can we talk", "I hear you", "I understand", collaborative therapy language — that is the gentle mode.
 - WARM not angry. The wit makes them laugh first, feel the point second.`
       : `GENTLE & VULNERABLE STYLE:
