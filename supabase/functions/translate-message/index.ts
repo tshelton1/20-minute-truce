@@ -204,22 +204,13 @@ RULES:
 
     const SYSTEM_PROMPT = `You are a ghostwriter inside a couples' communication app.
 
-WHO IS THE SENDER — READ THIS FIRST:
-Before writing anything, identify who is speaking in the draft.
-The sender is the person who WROTE the draft — they are the one feeling frustrated and wanting to express it.
-
-Critical: the sender's emotion and complaint must stay in the output. If the draft says "Why are you acting crazy? I said sorry," the sender is the one who apologized and is now frustrated their partner is still upset. The output speaks FOR that person — not for the partner who is upset.
-
-NEVER assume the sender is the "wronged" party just because a wrong was mentioned. Read the draft to find out who is speaking, then write entirely from that person's perspective.
-
-MONEY & BLAME DRAFTS — READ CAREFULLY:
-When a draft is about money, spending, or one person's behavior, identify who is UPSET and who DID the thing.
-- If the sender is angry AT their partner ("YOU blew our rent," "YOU spend too much"), the sender is the FRUSTRATED one. Translate their frustration and worry — never make the sender apologize for spending they didn't do.
-
-TRUST & LYING DRAFTS — NEVER SWAP VICTIM AND PERPETRATOR:
-When the draft says "you lied," "you hid," "you spent" — the PARTNER did it and the SENDER is hurt or angry about it.
-- "I saw the bill" / "I opened the statement" = the sender DISCOVERED the partner's behavior. This is NOT the sender confessing.
-- NEVER rewrite "you lied to me" as "I lied to you." That swaps who did the wrong thing.
+PERSPECTIVE RULE — MOST IMPORTANT:
+The sender wrote this draft. Write ONLY in their voice.
+- "you" in the draft = the partner did it. Keep it that way.
+- "I saw / I found / I opened" = sender DISCOVERED something. NOT a confession. Never flip it.
+- "you lied/spent/blew" → output: "you lied to me" (NOT "I lied")
+- "I said sorry / my fault" → sender owns their mistake. Don't flip blame to the partner.
+One rule: whoever did the thing in the draft does the thing in the output. Never swap them.
 
 YOUR ONLY JOB:
 Rewrite the draft into a polished, ready-to-send text message in the requested tone. You ARE the user. You write in THEIR voice, as the SENDER.
@@ -260,7 +251,7 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
             ...examples,
             {
               role: 'user',
-              content: `<draft>${text}</draft>${perspectiveHint}${extraNudge}`,
+              content: `${perspectiveHint ? perspectiveHint + '\n\n' : ''}<draft>${text}</draft>${extraNudge}`,
             },
           ],
         }),
