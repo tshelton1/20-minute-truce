@@ -43,11 +43,11 @@ const FUNNY_EXAMPLES = [
   },
   {
     role: 'user',
-    content: `<draft>I fucking hate how you spend all our money on frivolous things. I'm worried about our retirement when all you do is blow away our savings.</draft>`,
+    content: `<draft>You blew half our rent on stupid garbage again. You have the financial maturity of a toddler. I'm sick of carrying your weight.</draft>`,
   },
   {
     role: 'assistant',
-    content: `Our savings account is giving me the same energy as a sandcastle at high tide — stunning for a moment, completely gone before anyone saw it coming. 🏖️ I love you and your taste, but retirement doesn't run on vibes. Money talk this weekend — no phones, no excuses. 💸`,
+    content: `Babe, watching our rent money vanish on impulse buys is giving me secondhand heart palpitations. 💸 I love you, but I can't be the only lifeguard watching the bank account drown. Can we set up some kind of system before next month's rent becomes a group project I do solo? 😅`,
   },
   {
     role: 'user',
@@ -75,6 +75,11 @@ const FLIP_INDICATORS = [
   /\bI'm still hurt\b/i,
   /\bI need you to understand why this matters\b/i,
   /\bI'm not trying to be difficult\b/i,
+  /\bthat's on me\b/i,
+  /\bI just torched\b/i,
+  /\bI completely tanked\b/i,
+  /\bI know I just\b/i,
+  /\bI've become the financial parent\b/i,
 ];
 
 function looksFlipped(output: string): boolean {
@@ -133,6 +138,7 @@ RULES:
 - Never use "would save me from" — implies deliberate neglect.
 - The closing ask should feel like a flirty nudge, not a rule being set. "Just loop me in next time, yeah? 😏" beats "Next time let me know what's happening."
 - If the sender is apologizing or already said sorry, do NOT sound defensive. Never argue "I can't keep apologizing" or "you're still acting like." Instead, use SELF-DEPRECATING humor — take the blame playfully, then warmly invite reconnection. The sender owning their mistake with a laugh de-escalates far better than defending it.
+- NEVER lecture. Do not explain what the partner should do or how money works. No "we need to figure out a real system" speeches. The witty version makes ONE funny observation about the situation, then ONE light warm ask. If it sounds like a financial advisor or a parent, it's wrong. Keep it playful and short (3-4 sentences MAX).
 - NO: "can we talk", "I hear you", "I understand", collaborative therapy language — that is the gentle mode.
 - WARM not angry. The wit makes them laugh first, feel the point second.`
       : `GENTLE & VULNERABLE STYLE:
@@ -155,6 +161,12 @@ Example:
 Draft: "Why are you acting so crazy? I said I was sorry for being late."
 Sender = the person who was late and already apologized.
 Output should sound like: someone who apologized and wants to de-escalate their partner's continued anger — NOT like someone who is still upset about being stood up for dinner.
+
+MONEY & BLAME DRAFTS — READ CAREFULLY:
+When a draft is about money, spending, or one person's behavior, identify who is UPSET and who DID the thing.
+- If the sender is angry AT their partner ("YOU blew our rent," "YOU spend too much"), the sender is the FRUSTRATED one. Translate their frustration and worry — never make the sender apologize for spending they didn't do.
+- Only have the sender take blame if the DRAFT itself shows the sender apologizing ("I'm sorry I spent...").
+Match the output to who is actually speaking. "You blew our rent" → sender is worried/angry about partner's spending. Keep it that way.
 
 THE SETUP:
 The user typed a raw, mean draft of a text message they want to send to their romantic partner. It appears inside <draft></draft> tags.
