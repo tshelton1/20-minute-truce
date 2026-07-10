@@ -24,11 +24,11 @@ const GENTLE_EXAMPLES = [
   },
   {
     role: 'user',
-    content: `<draft>I fucking hate how you spend all our money on frivolous things. I'm worried about our retirement when all you do is blow away our savings.</draft>`,
+    content: `<draft>I saw the credit card bill. You lied to my face about how much you spent, period. You are completely untrustworthy and irresponsible.</draft>`,
   },
   {
     role: 'assistant',
-    content: `I've been carrying this fear quietly for a while and I need to say it out loud — I'm genuinely scared about our future when I watch us spend money on things that won't matter in 20 years. It's not about the purchases, it's about feeling like we're not building anything together. Can we sit down this weekend and actually look at the numbers as a team?`,
+    content: `I looked at the bill and the number didn't match what you told me, and that hurt more than the spending itself. I need to be able to trust you with our money — when you hide things from me, I feel like we're on different teams. Can we talk tonight about what happened and how we get back to honesty?`,
   },
 ];
 
@@ -48,6 +48,14 @@ const FUNNY_EXAMPLES = [
   {
     role: 'assistant',
     content: `Babe, watching our rent money vanish on impulse buys is giving me secondhand heart palpitations. 💸 I love you, but I can't be the only lifeguard watching the bank account drown. Can we set up some kind of system before next month's rent becomes a group project I do solo? 😅`,
+  },
+  {
+    role: 'user',
+    content: `<draft>I saw the credit card bill. You lied to my face about how much you spent. You're completely untrustworthy.</draft>`,
+  },
+  {
+    role: 'assistant',
+    content: `The credit card bill and your version of events showed up to the same party wearing completely different outfits. 💳 I love you, but I can't budget on vibes and surprise plot twists. Real numbers tomorrow — no costume changes. 😅`,
   },
   {
     role: 'user',
@@ -82,8 +90,71 @@ const FLIP_INDICATORS = [
   /\bI've become the financial parent\b/i,
 ];
 
-function looksFlipped(output: string): boolean {
-  return FLIP_INDICATORS.some((re) => re.test(output));
+// When the draft accuses the partner ("you lied/spent"), these output
+// phrases mean the model wrongly flipped into the perpetrator's voice.
+const SENDER_CONFESSED_INDICATORS = [
+  /\bI lied\b/i,
+  /\bI('ve| have) lied\b/i,
+  /\bI straight-up lied\b/i,
+  /\bI hate that I (did|lied)\b/i,
+  /\bhiding it was\b/i,
+  /\bI cracked\b/i,
+  /\bthe number I told you\b/i,
+  /\bI don't want to be the person you can't believe\b/i,
+  /\bI broke your trust\b/i,
+  /\bI need to tell you what.{0,40}(happened|going on).{0,40}spending\b/i,
+  /\bI hate that I\b/i,
+  /\bI was wrong to (spend|hide|lie)\b/i,
+  /\bI shouldn't have (spent|hidden|lied)\b/i,
+];
+
+type DraftPerspective = {
+  accusesPartner: boolean;
+  senderApologizing: boolean;
+  hint: string;
+  retryNudge: string;
+};
+
+function analyzeDraftPerspective(draft: string): DraftPerspective {
+  const partnerDidBadThing =
+    /\byou\b[^.!?\n]{0,100}\b(lied|spend|spent|blew|wasted|hid|hide|cheat|never|didn't|did not|always|broke|ruined|stole)\b/i.test(draft) ||
+    /\byou('re| are)\b[^.!?\n]{0,50}\b(lying|untrustworthy|irresponsible|selfish|lazy|crazy|pathetic|wrong)\b/i.test(draft);
+
+  const senderOwnsIt =
+    /\b(i('m| am)? sorry|i said sorry|my bad|my fault)\b/i.test(draft) ||
+    (/\bi\b/i.test(draft) && /\bi\b[^.!?\n]{0,80}\b(lied|spent|blew|wasted|hid|was wrong|messed up|screwed up)\b/i.test(draft));
+
+  const accusesPartner = partnerDidBadThing && !senderOwnsIt;
+  const senderApologizing = senderOwnsIt && !partnerDidBadThing;
+
+  let hint = '';
+  let retryNudge = '';
+
+  if (accusesPartner) {
+    hint = 'SENDER POV: The sender is upset at their PARTNER. Words like "you lied" or "you spent" mean the PARTNER did it. The sender may have discovered it ("I saw the bill") — that is NOT a confession. Never rewrite as if the sender lied, spent, or hid anything.';
+    retryNudge = `\n\nCRITICAL PERSPECTIVE FIX: The draft blames the PARTNER ("you" did the bad thing). Your last attempt wrongly made the SENDER confess or apologize (e.g. "I lied"). Rewrite from the hurt/angry sender's voice — "you lied to me," NOT "I lied to you."`;
+  } else if (senderApologizing) {
+    hint = 'SENDER POV: The sender is apologizing for their own actions. Write as someone owning their mistake — do NOT flip blame onto the partner.';
+    retryNudge = `\n\nCRITICAL PERSPECTIVE FIX: The draft shows the SENDER apologizing for their own actions. Write as the person who messed up — do NOT flip into the partner's hurt voice.`;
+  }
+
+  return { accusesPartner, senderApologizing, hint, retryNudge };
+}
+
+function looksFlipped(draft: string, output: string): boolean {
+  if (FLIP_INDICATORS.some((re) => re.test(output))) return true;
+
+  const { accusesPartner, senderApologizing } = analyzeDraftPerspective(draft);
+
+  if (accusesPartner && SENDER_CONFESSED_INDICATORS.some((re) => re.test(output))) {
+    return true;
+  }
+
+  if (senderApologizing && /\byou('re| are) (hurt|upset|angry)\b/i.test(output)) {
+    return true;
+  }
+
+  return false;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -168,6 +239,17 @@ When a draft is about money, spending, or one person's behavior, identify who is
 - Only have the sender take blame if the DRAFT itself shows the sender apologizing ("I'm sorry I spent...").
 Match the output to who is actually speaking. "You blew our rent" → sender is worried/angry about partner's spending. Keep it that way.
 
+TRUST & LYING DRAFTS — NEVER SWAP VICTIM AND PERPETRATOR:
+When the draft says "you lied," "you hid," "you spent" — the PARTNER did it and the SENDER is hurt or angry about it.
+- "I saw the bill" / "I opened the statement" = the sender DISCOVERED the partner's behavior. This is NOT the sender confessing.
+- NEVER rewrite "you lied to me" as "I lied to you." That swaps who did the wrong thing.
+- The sender's feelings: hurt, betrayed, can't trust — in the requested tone.
+
+Example:
+Draft: "You lied to my face about how much you spent."
+WRONG: "I lied about the numbers and broke your trust."
+RIGHT: "What you told me and what the bill said were two different stories, and that scares me."
+
 THE SETUP:
 The user typed a raw, mean draft of a text message they want to send to their romantic partner. It appears inside <draft></draft> tags.
 
@@ -210,6 +292,8 @@ ${toneInstructions}
 
 VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
 
+    const perspective = analyzeDraftPerspective(text);
+    const perspectiveHint = perspective.hint ? `\n\n[${perspective.hint}]` : '';
     const examples = isFunny ? FUNNY_EXAMPLES : GENTLE_EXAMPLES;
 
     async function callClaude(extraNudge = ""): Promise<{ ok: boolean; status: number; data: any }> {
@@ -229,7 +313,7 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
             ...examples,
             {
               role: 'user',
-              content: `<draft>${text}</draft>${extraNudge} [v${Math.floor(Math.random() * 10000)}]`,
+              content: `<draft>${text}</draft>${perspectiveHint}${extraNudge} [v${Math.floor(Math.random() * 10000)}]`,
             },
           ],
         }),
@@ -256,13 +340,13 @@ VOICE: Conversational English, 4th-grade reading level, natural contractions.`;
 
     let translatedText = data?.content?.[0]?.text?.trim() || "";
 
-    if (translatedText && looksFlipped(translatedText)) {
-      const retry = await callClaude(
-        `\n\nREMINDER: I am the one with this complaint. Rewrite MY message in MY voice as the sender. Do not apologize on my partner's behalf.`
-      );
+    if (translatedText && looksFlipped(text, translatedText)) {
+      const retryNudge = perspective.retryNudge ||
+        `\n\nREMINDER: I am the one with this complaint. Rewrite MY message in MY voice as the sender. Do not apologize on my partner's behalf.`;
+      const retry = await callClaude(retryNudge);
       if (retry.ok) {
         const retryText = retry.data?.content?.[0]?.text?.trim() || "";
-        if (retryText && !looksFlipped(retryText)) {
+        if (retryText && !looksFlipped(text, retryText)) {
           translatedText = retryText;
         }
       }
