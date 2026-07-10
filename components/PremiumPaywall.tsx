@@ -134,13 +134,10 @@ export default function PremiumPaywall({ isVisible, onClose }: Props) {
         onClose();
       }
     } catch (e: unknown) {
-      // TODO: revert before App Store submission
-      Alert.alert("Purchase Debug", JSON.stringify({
-        code: (e as any).code,
-        message: (e as any).message,
-        userCancelled: (e as any).userCancelled,
-        underlyingError: (e as any).underlyingErrorMessage,
-      }));
+      const error = e as PurchasesError;
+      if (!error.userCancelled) {
+        Alert.alert("Transaction Failed", error.message || "We couldn't complete your purchase. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

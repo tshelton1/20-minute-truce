@@ -172,7 +172,7 @@ export default function MediatorScreen() {
 
       if (error) {
         console.error("Edge Function Error:", error);
-        Alert.alert("Diagnostic Server Error", error.message || "The AI server returned an error.");
+        Alert.alert("Service Unavailable", "The Mediator couldn't reach the server. Please try again.");
         setLoading(false);
         return;
       }
